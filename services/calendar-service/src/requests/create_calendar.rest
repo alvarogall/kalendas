@@ -1,0 +1,14 @@
+POST http://localhost:3001/api/calendars
+Content-Type: application/json
+
+{
+  "title": "Reunión de proyecto",
+  "author": "Juan Pérez",
+  "description": "Reunión para discutir el cronograma del proyecto Kalendas",
+  "startDate": "2025-10-20T10:00:00.000Z",
+  "endDate": "2025-10-20T11:00:00.000Z",
+  "location": "Sala de juntas A",
+  "attendees": ["ana@example.com", "pedro@example.com"],
+  "url": "http://intranet.company.com/calendar/meeting1",
+  "likes": 0
+}
