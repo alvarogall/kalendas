@@ -1,0 +1,29 @@
+POST http://localhost:3001/api/events
+Content-Type: application/json
+
+{
+  "title": "Presentación del prototipo Kalendas",
+  "startTime": "2025-10-25T09:30:00.000Z",
+  "duration": 90,
+  "location": "Aula 3.2 - ETSI Informática",
+  "organizer": "Laura Gómez",
+  "calendar": "6712acb2e5f84b6cf3d15e89",
+  "description": "Demostración interna del prototipo funcional de la aplicación Kalendas ante el equipo docente.",
+  "images": ["https://res.cloudinary.com/demo/image/upload/v1/kalendas/prototipo.png"],
+  "attachments": ["https://drive.google.com/file/d/1XYZabc123/view?usp=sharing"],
+  "mapLink": "https://maps.google.com/?q=ETSI+Informática,+Sevilla",
+  "comments": [
+    {
+      "user": "ana@example.com",
+      "text": "¡Qué ganas de ver el resultado!"
+    }
+  ],
+  "notifications": [
+    {
+      "user": "laura@example.com",
+      "minutesBefore": 60,
+      "active": true
+    }
+  ],
+  "createdBy": "laura@example.com"
+}
