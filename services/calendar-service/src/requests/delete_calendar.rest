@@ -1,0 +1,2 @@
+DELETE http://localhost:3001/api/calendars/690341770816c9931bfd3476
+// Aqui el id tiene que cambiarse al de uno existente para probarlo

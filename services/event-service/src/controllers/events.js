@@ -12,4 +12,13 @@ eventsRouter.post('/', async (request, response) => {
   response.status(201).json(result)
 })
 
+eventsRouter.delete('/:id', async (request, response) => {
+  const result = await Event.findByIdAndDelete(request.params.id)
+  if (result) {
+    response.status(204).end()
+  } else {
+    response.status(404).json({ error: 'Event not found' })
+  }
+})
+
 module.exports = eventsRouter
