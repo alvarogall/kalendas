@@ -35,6 +35,13 @@ calendarsRouter.delete('/:id', async (request, response) => {
   }
 })
 
-
+calendarsRouter.get('/:id', async (request, response) => {
+  const calendar = await Calendar.findById(request.params.id)
+  if (calendar) {
+    response.json(calendar)
+  } else {
+    response.status(404).json({ error: 'Calendar not found' })
+  }
+})
 
 module.exports = calendarsRouter
