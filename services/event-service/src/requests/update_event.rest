@@ -1,0 +1,15 @@
+### UPDATE (
+PUT http://localhost:3001/api/events/68f3661d0691dab055cb6e65
+Content-Type: application/json
+
+{
+  "title": "Reunión de planificación (Recien Actualizada)",
+  "author": "maria.gomez",
+  "description": "Planificación sprint noviembre",
+  "startDate": "2025-11-12T09:00:00.000Z",
+  "endDate": "2025-11-12T10:30:00.000Z",
+  "location": "Sala Zoom",
+  "attendees": ["ana@example.com", "luis@example.com"],
+  "url": "https://meet.example.com/planning",
+  "likes": 5
+}

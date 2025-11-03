@@ -1,0 +1,15 @@
+### UPDATE
+PUT http://localhost:3001/api/calendars/68f13d738bdbb5821b6bfc5f
+Content-Type: application/json
+
+{
+  "title": "Reunión de seguimiento (Actualziada)",
+  "author": "jose.perez",
+  "description": "Actualizar estado del proyecto",
+  "startDate": "2025-11-10T10:00:00.000Z",
+  "endDate": "2025-11-10T11:00:00.000Z",
+  "location": "Sala 2",
+  "attendees": ["ana@example.com", "luis@example.com"],
+  "url": "https://meet.example.com/room",
+  "likes": 2
+}

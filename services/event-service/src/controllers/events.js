@@ -21,4 +21,22 @@ eventsRouter.delete('/:id', async (request, response) => {
   }
 })
 
+eventsRouter.put('/:id', async(request, response) => {
+
+  const result = await Event.findByIdAndUpdate(
+    request.params.id,
+    request.body,
+    { new:true, runValidators:true, context:'query'}
+  )
+
+  if(result){
+    response.json(result)
+  }else{
+    response.status(404).json({error: 'Event not found'})
+  }
+
+
+
+})
+
 module.exports = eventsRouter

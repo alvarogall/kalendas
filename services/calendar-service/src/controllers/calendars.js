@@ -12,6 +12,20 @@ calendarsRouter.post('/', async (request, response) => {
   response.status(201).json(result)
 })
 
+calendarsRouter.put('/:id', async (request, response) => {
+  const updated = await Calendar.findByIdAndUpdate(
+    request.params.id,
+    request.body,
+    { new: true, runValidators: true, context: 'query' }
+  )
+
+  if (updated) {
+    response.json(updated)
+  } else {
+    response.status(404).json({ error: 'Calendar not found' })
+  }
+})
+
 calendarsRouter.delete('/:id', async (request, response) => {
   const result = await Calendar.findByIdAndDelete(request.params.id)
   if (result) {
@@ -20,5 +34,7 @@ calendarsRouter.delete('/:id', async (request, response) => {
     response.status(404).json({ error: 'Calendar not found' })
   }
 })
+
+
 
 module.exports = calendarsRouter
