@@ -1,0 +1,29 @@
+services:
+
+  calendar-service:
+    build:
+      context: ../services/calendar-service
+      dockerfile: Dockerfile
+    env_file:
+      - ../services/calendar-service/.env
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    networks:
+      - kalendas-net
+
+  event-service:
+    build:
+      context: ../services/event-service
+      dockerfile: Dockerfile
+    env_file:
+      - ../services/event-service/.env
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    networks:
+      - kalendas-net
+
+networks:
+  kalendas-net:
+    driver: bridge
