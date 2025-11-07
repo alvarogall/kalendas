@@ -1,0 +1,6 @@
+PUT http://localhost:3003/api/comments/672d8cbe52cdad7c5fa1f2e5
+Content-Type: application/json
+
+{
+  "text": "Comentario actualizado — el evento fue aún mejor de lo esperado"
+}

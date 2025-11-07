@@ -1,0 +1,8 @@
+POST http://localhost:3003/api/comments
+Content-Type: application/json
+
+{
+    "text": "Excelente evento, aprendí mucho",
+    "author": "Juan Pérez",
+    "eventId": "672d8b3f52cdad7c5fa1f2e1"
+}
