@@ -1,0 +1,6 @@
+GET http://localhost:3001/api/events/by-user/ana@example.com
+Accept: application/json
+
+###
+GET http://localhost:3001/api/events/by-user/laura@example.com
+Accept: application/json
