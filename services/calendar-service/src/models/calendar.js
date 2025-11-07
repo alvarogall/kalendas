@@ -10,38 +10,44 @@ const calendarSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  description: {
+  authorEmail: {
     type: String,
-    required: false
+    required: true
+  },
+  description: {
+    type: String
   },
   startDate: {
     type: Date,
     required: true
   },
   endDate: {
-    type: Date,
-    required: false
+    type: Date
   },
   attendees: {
-    type: [String], // array de emails o identificadores
+    type: [String],
     default: []
   },
   url: {
-    type: String,
-    required: false
+    type: String
   },
   likes: {
     type: Number,
     default: 0
-  }, 
+  },
   events: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Event' // Referencia al modelo Event
+    ref: 'Event'
   }],
   sub_calendars: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Calendar' // Referencia recursiva al mismo modelo Calendar
-  }]
+    ref: 'Calendar'
+  }],
+  notificationChannel: {
+    type: String,
+    enum: ['email', 'in-app'],
+    default: 'email'
+  }
 }, {
   timestamps: true
 });
