@@ -1,0 +1,1 @@
+GET http://localhost:3001/api/calendars/search/by-date-range?startDate=2025-10-10&endDate=2025-12-10

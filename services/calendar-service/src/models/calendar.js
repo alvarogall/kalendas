@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+const mongoose = require('mongoose');
 
 const calendarSchema = new mongoose.Schema({
   title: {
@@ -22,10 +22,6 @@ const calendarSchema = new mongoose.Schema({
     type: Date,
     required: false
   },
-  location: {
-    type: String,
-    required: false
-  },
   attendees: {
     type: [String], // array de emails o identificadores
     default: []
@@ -37,7 +33,15 @@ const calendarSchema = new mongoose.Schema({
   likes: {
     type: Number,
     default: 0
-  }
+  }, 
+  events: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Event' // Referencia al modelo Event
+  }],
+  sub_calendars: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Calendar' // Referencia recursiva al mismo modelo Calendar
+  }]
 }, {
   timestamps: true
 });

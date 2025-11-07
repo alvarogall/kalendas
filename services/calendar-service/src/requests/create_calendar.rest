@@ -2,13 +2,17 @@ POST http://localhost:3001/api/calendars
 Content-Type: application/json
 
 {
-  "title": "Reunión de proyecto",
-  "author": "Juan Pérez",
-  "description": "Reunión para discutir el cronograma del proyecto Kalendas",
-  "startDate": "2025-10-20T10:00:00.000Z",
-  "endDate": "2025-10-20T11:00:00.000Z",
-  "location": "Sala de juntas A",
-  "attendees": ["ana@example.com", "pedro@example.com"],
-  "url": "http://intranet.company.com/calendar/meeting1",
-  "likes": 0
+  "title": "Calendario Principal - Proyecto 2024",
+  "author": "Admin Principal",
+  "description": "Calendario maestro que contiene todos los subcalendarios del proyecto",
+  "startDate": "2024-11-01T00:00:00.000Z",
+  "endDate": "2024-12-31T23:59:00.000Z",
+  "attendees": ["admin@example.com", "maria@example.com", "pedro@example.com"],
+  "url": "https://example.com/calendario-principal",
+  "likes": 15,
+  "events": ["68f3661d0691dab055cb6e65"],
+  "sub_calendars": [
+    "690e3298f57ac7d44e921f2b",
+    "690e32a4f57ac7d44e921f2d"
+  ]
 }

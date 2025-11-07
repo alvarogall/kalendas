@@ -44,4 +44,71 @@ calendarsRouter.get('/:id', async (request, response) => {
   }
 })
 
+calendarsRouter.get('/search/by-author', async (request, response) => {
+  const { author } = request.query;
+  
+  if (!author) {
+    return response.status(400).json({ error: 'Author parameter is required' });
+  }
+  
+  const calendars = await Calendar.find({ 
+    author: { $regex: author, $options: 'i' } // búsqueda case-insensitive
+  }).sort({ startDate: -1 });
+  
+  response.json(calendars);
+})
+
+calendarsRouter.get('/search/by-date-range', async (request, response) => {
+  const { startDate, endDate } = request.query;
+  
+  if (!startDate || !endDate) {
+    return response.status(400).json({ 
+      error: 'Both startDate and endDate parameters are required' 
+    });
+  }
+
+  const calendars = await Calendar.find({
+    startDate: { 
+      $gte: new Date(startDate),
+      $lte: new Date(endDate)
+    }
+  }).sort({ startDate: -1 });
+  
+  response.json(calendars);
+})
+
+calendarsRouter.get('/search/by-title', async (request, response) => {
+  const { title } = request.query;
+  
+  if (!title) {
+    return response.status(400).json({ error: 'Title parameter is required' });
+  }
+  
+  const calendars = await Calendar.find({ 
+    title: { $regex: title, $options: 'i' } // búsqueda case-insensitive y parcial
+  }).sort({ startDate: -1 });
+  
+  response.json(calendars);
+})
+
+calendarsRouter.get('/:id/subcalendars', async (request, response) => {
+  const calendar = await Calendar.findById(request.params.id)
+    .populate('sub_calendars');
+  
+  if (!calendar) {
+    return response.status(404).json({ error: 'Calendar not found' });
+  }
+  response.json(calendar.sub_calendars);
+})
+
+calendarsRouter.get('/:id/events', async (request, response) => {
+  const calendar = await Calendar.findById(request.params.id);
+  
+  if (!calendar) {
+    return response.status(404).json({ error: 'Calendar not found' });
+  }
+  
+  response.json(calendar.events);
+})
+
 module.exports = calendarsRouter
