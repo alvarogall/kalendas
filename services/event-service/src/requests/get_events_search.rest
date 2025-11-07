@@ -1,0 +1,11 @@
+GET http://localhost:3001/api/events/search?description=planificación
+Accept: application/json
+
+###
+GET http://localhost:3001/api/events/search?organizer=Laura%20Gómez&startAfter=2025-10-01&startBefore=2025-12-31
+Accept: application/json
+
+###
+# Sin parámetros (devuelve todos los events no borrados, ordenados por startTime desc)
+GET http://localhost:3001/api/events/search
+Accept: application/json
