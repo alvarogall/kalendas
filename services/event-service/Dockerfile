@@ -2,14 +2,20 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Copiar archivos de dependencias
 COPY package*.json ./
-RUN npm ci --only=production
 
+# Instalar dependencias de producción
+RUN npm install --only=production
+
+# Copiar código fuente
 COPY . .
 
+# Variables de entorno
 ENV NODE_ENV=production
 
-# PUERTO
+# Exponer puerto
 EXPOSE 3002
 
+# Comando de inicio
 CMD ["node", "src/index.js"]

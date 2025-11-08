@@ -1,0 +1,59 @@
+### Salud del gateway
+GET http://localhost:8080/health
+
+### Listar calendarios (filtro por organizer)
+GET http://localhost:8080/api/calendars?organizer=Escuela%20de%20Ingenieria
+
+### Crear calendario
+POST http://localhost:8080/api/calendars
+Content-Type: application/json
+
+{
+  "title": "Conferencias 2025",
+  "organizer": "Escuela de Ingenieria",
+  "organizerEmail": "org@example.com",
+  "description": "Agenda academica",
+  "startDate": "2025-01-01T00:00:00.000Z",
+  "endDate": "2025-12-31T23:59:59.000Z",
+  "keywords": ["ingenieria", "conferencias"],
+  "notificationChannel": "email"
+}
+
+### Listar eventos (filtro por calendar)
+GET http://localhost:8080/api/events?calendar=64f1a0c2a0b1c2d3e4f56789
+
+### Crear evento
+POST http://localhost:8080/api/events
+Content-Type: application/json
+
+{
+  "title": "Jornada puertas abiertas",
+  "startTime": "2025-03-10T09:00:00.000Z",
+  "endTime": "2025-03-10T12:00:00.000Z",
+  "location": "Aula Magna",
+  "organizer": "Escuela de Ingenieria",
+  "calendar": "64f1a0c2a0b1c2d3e4f56789",
+  "description": "Bienvenida a nuevos estudiantes"
+}
+
+### Listar comentarios (por eventId)
+GET http://localhost:8080/api/comments?eventId=64f1a0c2a0b1c2d3e4f56790
+
+### Crear comentario (genera notificacion)
+POST http://localhost:8080/api/comments
+Content-Type: application/json
+
+{
+  "eventId": "64f1a0c2a0b1c2d3e4f56790",
+  "user": "ana.romero",
+  "text": "Nos vemos alli!"
+}
+
+### Listar notificaciones no leidas in-app por usuario
+GET http://localhost:8080/api/notifications?recipientEmail=org@example.com&channel=in-app&unread=true
+
+### Marcar notificacion leida
+PATCH http://localhost:8080/api/notifications/64f1a0c2a0b1c2d3e4f56791/read
+
+### Eliminar notificacion
+DELETE http://localhost:8080/api/notifications/64f1a0c2a0b1c2d3e4f56791

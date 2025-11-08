@@ -3,16 +3,16 @@ Content-Type: application/json
 
 {
   "title": "Calendario Principal - Proyecto 2024",
-  "author": "Admin Principal",
+  "organizer": "Admin Principal",
+  "organizerEmail": "admin@example.com",
   "description": "Calendario maestro que contiene todos los subcalendarios del proyecto",
   "startDate": "2024-11-01T00:00:00.000Z",
   "endDate": "2024-12-31T23:59:00.000Z",
-  "attendees": ["admin@example.com", "maria@example.com", "pedro@example.com"],
-  "url": "https://example.com/calendario-principal",
-  "likes": 15,
+  "keywords": ["principal", "proyecto", "2024"],
   "events": ["68f3661d0691dab055cb6e65"],
   "sub_calendars": [
     "690e3298f57ac7d44e921f2b",
     "690e32a4f57ac7d44e921f2d"
-  ]
+  ],
+  "notificationChannel": "email"
 }

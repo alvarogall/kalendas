@@ -3,3 +3,9 @@ npm-debug.log
 .env
 .git
 .gitignore
+README.md
+tests
+coverage
+.vscode
+.idea
+requests

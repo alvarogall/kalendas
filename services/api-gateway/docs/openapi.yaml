@@ -1,0 +1,619 @@
+openapi: 3.0.3
+info:
+  title: Kalendas API Gateway
+  description: |
+    Especificación OpenAPI del API Gateway de Kalendas. Todas las operaciones se exponen bajo el gateway y se encaminan a los microservicios internos (calendars, events, comments, notifications).
+
+    Notas:
+    - Todas las fechas están en ISO 8601.
+    - Los parámetros de búsqueda se pasan como query string en el endpoint raíz de cada recurso.
+    - Las respuestas devuelven `id` (string) en lugar de `_id`.
+  version: 1.0.0
+  contact:
+    name: Equipo Kalendas
+servers:
+  - url: http://localhost:8080
+    description: Desarrollo local (API Gateway)
+
+tags:
+  - name: Calendars
+    description: Gestión y consulta de calendarios
+  - name: Events
+    description: Gestión y consulta de eventos
+  - name: Comments
+    description: Gestión y consulta de comentarios
+  - name: Notifications
+    description: Gestión y consulta de notificaciones
+  - name: Health
+    description: Estado del gateway
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Comprobar estado del gateway
+      description: Devuelve estado y URLs configuradas de los servicios aguas abajo.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  services:
+                    type: object
+                    additionalProperties:
+                      type: string
+              examples:
+                ejemplo:
+                  value:
+                    status: ok
+                    services:
+                      calendars: http://localhost:3001
+                      events: http://localhost:3002
+                      comments: http://localhost:3003
+                      notifications: http://localhost:3004
+
+  /api/calendars:
+    get:
+      tags: [Calendars]
+      summary: Listar calendarios con filtros
+      description: |
+        Devuelve la lista de calendarios. Filtros admitidos (combinables):
+        - `title`: coincidencia parcial, insensible a mayúsculas.
+        - `organizer`: coincidencia parcial, insensible a mayúsculas.
+        - `startDate`/`endDate`: rango en la fecha de inicio del calendario.
+        - `hasEventsByOrganizer`: restringe a calendarios que tengan eventos cuyo `organizer` sea el indicado.
+        - `commentedBy`: restringe a calendarios que tengan eventos con comentarios del usuario indicado.
+      parameters:
+        - in: query
+          name: title
+          schema: { type: string }
+          description: Texto a buscar en el título
+        - in: query
+          name: organizer
+          schema: { type: string }
+          description: Texto a buscar en el organizador
+        - in: query
+          name: startDate
+          schema: { type: string, format: date-time }
+        - in: query
+          name: endDate
+          schema: { type: string, format: date-time }
+        - in: query
+          name: hasEventsByOrganizer
+          schema: { type: string }
+          description: Organizador de eventos requerido
+        - in: query
+          name: commentedBy
+          schema: { type: string }
+          description: Usuario que ha comentado en eventos del calendario
+      responses:
+        '200':
+          description: Lista de calendarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Calendar' }
+              examples:
+                ejemplo:
+                  value:
+                    - id: 64f1a0c2a0b1c2d3e4f56789
+                      title: Conferencias 2025
+                      organizer: Escuela de Ingeniería
+                      organizerEmail: org@example.com
+                      description: Agenda académica
+                      startDate: 2025-01-01T00:00:00.000Z
+                      endDate: 2025-12-31T23:59:59.000Z
+                      keywords: [ingeniería, conferencias]
+                      notificationChannel: email
+                      createdAt: 2025-01-02T10:00:00.000Z
+                      updatedAt: 2025-01-02T10:00:00.000Z
+    post:
+      tags: [Calendars]
+      summary: Crear calendario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalendarCreate' }
+            examples:
+              ejemplo:
+                value:
+                  title: Conferencias 2025
+                  organizer: Escuela de Ingeniería
+                  organizerEmail: org@example.com
+                  description: Agenda académica
+                  startDate: 2025-01-01T00:00:00.000Z
+                  endDate: 2025-12-31T23:59:59.000Z
+                  keywords: [ingeniería, conferencias]
+                  notificationChannel: email
+      responses:
+        '201':
+          description: Calendario creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Calendar' }
+
+  /api/calendars/{id}:
+    get:
+      tags: [Calendars]
+      summary: Obtener calendario por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, pattern: '^[0-9a-fA-F]{24}$' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Calendar' } } } }
+        '404': { description: No encontrado }
+    put:
+      tags: [Calendars]
+      summary: Actualizar calendario por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CalendarUpdate' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Calendar' } } } }
+        '404': { description: No encontrado }
+    delete:
+      tags: [Calendars]
+      summary: Eliminar calendario por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Eliminado }
+        '404': { description: No encontrado }
+
+  /api/calendars/{id}/subcalendars:
+    get:
+      tags: [Calendars]
+      summary: Listar subcalendarios de un calendario
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Calendar' }
+        '404': { description: No encontrado }
+
+  /api/events:
+    get:
+      tags: [Events]
+      summary: Listar eventos con filtros
+      description: |
+        Filtros admitidos:
+        - `description`: busca en `title` y `description` (regex segura, insensible a mayúsculas).
+        - `organizer`: exacto.
+        - `calendarId` o `calendar`: ID del calendario.
+        - `startAfter` / `startBefore`: rango por `startTime`.
+        - `ids`: lista de IDs separados por comas (máximo 200 recomendado).
+        - `commentedBy`: restringe a eventos comentados por un usuario concreto.
+      parameters:
+        - in: query
+          name: description
+          schema: { type: string }
+        - in: query
+          name: organizer
+          schema: { type: string }
+        - in: query
+          name: calendarId
+          schema: { type: string }
+        - in: query
+          name: calendar
+          schema: { type: string }
+        - in: query
+          name: startAfter
+          schema: { type: string, format: date-time }
+        - in: query
+          name: startBefore
+          schema: { type: string, format: date-time }
+        - in: query
+          name: ids
+          schema: { type: string }
+          description: CSV de IDs de evento
+        - in: query
+          name: commentedBy
+          schema: { type: string }
+      responses:
+        '200':
+          description: Lista de eventos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Event' }
+    post:
+      tags: [Events]
+      summary: Crear evento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventCreate' }
+            examples:
+              ejemplo:
+                value:
+                  title: Jornada de puertas abiertas
+                  startTime: 2025-03-10T09:00:00.000Z
+                  endTime: 2025-03-10T12:00:00.000Z
+                  location: Aula Magna
+                  organizer: Escuela de Ingeniería
+                  calendar: 64f1a0c2a0b1c2d3e4f56789
+                  description: Bienvenida a nuevos estudiantes
+      responses:
+        '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Event' } } } }
+
+  /api/events/{id}:
+    get:
+      tags: [Events]
+      summary: Obtener evento por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Event' } } } }
+        '404': { description: No encontrado }
+    put:
+      tags: [Events]
+      summary: Actualizar evento por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventUpdate' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Event' } } } }
+        '404': { description: No encontrado }
+    delete:
+      tags: [Events]
+      summary: Eliminar evento por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Eliminado }
+        '404': { description: No encontrado }
+
+  /api/comments:
+    get:
+      tags: [Comments]
+      summary: Listar comentarios con filtros
+      description: |
+        Filtros admitidos:
+        - `eventId`: por evento.
+        - `user`: por autor de comentario.
+        - `organizer`: combina con eventos del organizador.
+        - `distinctUsers=true`: si se combina con `organizer`, devuelve la lista de usuarios únicos.
+      parameters:
+        - in: query
+          name: eventId
+          schema: { type: string }
+        - in: query
+          name: user
+          schema: { type: string }
+        - in: query
+          name: organizer
+          schema: { type: string }
+        - in: query
+          name: distinctUsers
+          schema: { type: string, enum: ['true','false'] }
+      responses:
+        '200':
+          description: Lista de comentarios o de usuarios distintos
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items: { $ref: '#/components/schemas/Comment' }
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        user: { type: string }
+    post:
+      tags: [Comments]
+      summary: Crear comentario (dispara notificación)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommentCreate' }
+            examples:
+              ejemplo:
+                value:
+                  eventId: 64f1a0c2a0b1c2d3e4f56789
+                  user: ana.romero
+                  text: ¡Nos vemos allí!
+      responses:
+        '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Comment' } } } }
+
+  /api/comments/{id}:
+    get:
+      tags: [Comments]
+      summary: Obtener comentario por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Comment' } } } }
+        '404': { description: No encontrado }
+    put:
+      tags: [Comments]
+      summary: Actualizar comentario por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommentUpdate' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Comment' } } } }
+        '404': { description: No encontrado }
+    delete:
+      tags: [Comments]
+      summary: Eliminar comentario por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Eliminado }
+        '404': { description: No encontrado }
+
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: Listar notificaciones con filtros
+      description: |
+        Filtros admitidos:
+        - `eventId`, `calendarId`, `recipientEmail`, `channel`.
+        - `organizer`: filtra por eventos cuyo `organizer` coincide.
+        - `unread=true`: únicamente no leídas (para `in-app`).
+      parameters:
+        - in: query
+          name: eventId
+          schema: { type: string }
+        - in: query
+          name: calendarId
+          schema: { type: string }
+        - in: query
+          name: recipientEmail
+          schema: { type: string, format: email }
+        - in: query
+          name: organizer
+          schema: { type: string }
+        - in: query
+          name: channel
+          schema: { type: string, enum: ['email','in-app'] }
+        - in: query
+          name: unread
+          schema: { type: string, enum: ['true','false'] }
+      responses:
+        '200':
+          description: Lista de notificaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Notification' }
+    post:
+      tags: [Notifications]
+      summary: Crear notificación de comentario
+      description: Genera una notificación asociada a un comentario sobre un evento. El servicio completa mensaje, canal y destinatario.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationCreate' }
+            examples:
+              ejemplo:
+                value:
+                  eventId: 64f1a0c2a0b1c2d3e4f56789
+                  calendarId: 64f1a0c2a0b1c2d3e4f56780
+                  commenterName: ana.romero
+      responses:
+        '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+
+  /api/notifications/{id}:
+    get:
+      tags: [Notifications]
+      summary: Obtener notificación por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+        '404': { description: No encontrado }
+    delete:
+      tags: [Notifications]
+      summary: Eliminar notificación por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Eliminado }
+        '404': { description: No encontrado }
+
+  /api/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Marcar notificación como leída
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+        '404': { description: No encontrado }
+
+components:
+  schemas:
+    Calendar:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        organizer: { type: string }
+        organizerEmail: { type: string, format: email }
+        description: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time, nullable: true }
+        keywords:
+          type: array
+          items: { type: string }
+        notificationChannel:
+          type: string
+          enum: [email, in-app]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CalendarCreate:
+      type: object
+      required: [title, organizer, organizerEmail, startDate]
+      properties:
+        title: { type: string }
+        organizer: { type: string }
+        organizerEmail: { type: string, format: email }
+        description: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        keywords:
+          type: array
+          items: { type: string }
+        notificationChannel:
+          type: string
+          enum: [email, in-app]
+          default: email
+    CalendarUpdate:
+      allOf:
+        - $ref: '#/components/schemas/CalendarCreate'
+
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time }
+        location: { type: string }
+        organizer: { type: string }
+        calendar: { type: string, description: 'ID de Calendar' }
+        description: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        attachments:
+          type: array
+          items: { type: string }
+        mapLink: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    EventCreate:
+      type: object
+      required: [title, startTime, endTime, location, organizer, calendar]
+      properties:
+        title: { type: string }
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time }
+        location: { type: string }
+        organizer: { type: string }
+        calendar: { type: string }
+        description: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        attachments:
+          type: array
+          items: { type: string }
+        mapLink: { type: string }
+    EventUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EventCreate'
+
+    Comment:
+      type: object
+      properties:
+        id: { type: string }
+        eventId: { type: string }
+        user: { type: string }
+        text: { type: string }
+        date: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CommentCreate:
+      type: object
+      required: [eventId, user, text]
+      properties:
+        eventId: { type: string }
+        user: { type: string }
+        text: { type: string }
+    CommentUpdate:
+      allOf:
+        - $ref: '#/components/schemas/CommentCreate'
+
+    Notification:
+      type: object
+      properties:
+        id: { type: string }
+        eventId: { type: string }
+        calendarId: { type: string }
+        channel: { type: string, enum: [email, in-app] }
+        recipientEmail: { type: string, format: email }
+        message: { type: string }
+        read: { type: boolean }
+        status: { type: string, enum: [pending, sent, error] }
+        attempts: { type: integer }
+        lastError: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    NotificationCreate:
+      type: object
+      required: [eventId, calendarId, commenterName]
+      properties:
+        eventId: { type: string }
+        calendarId: { type: string }
+        commenterName: { type: string }

@@ -1,26 +1,78 @@
-services:
+version: '3.8'
 
+services:
+  # API Gateway
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    container_name: kalendas-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./config/env/gateway.env
+    networks:
+      - kalendas-net
+    depends_on:
+      - calendar-service
+      - event-service
+      - comment-service
+      - notification-service
+
+  # Servicio de calendarios
   calendar-service:
     build:
       context: ../services/calendar-service
       dockerfile: Dockerfile
-    env_file:
-      - ../services/calendar-service/.env
+    container_name: kalendas-calendar
+    restart: unless-stopped
     ports:
       - "3001:3001"
-    restart: unless-stopped
+    env_file:
+      - ./config/env/calendar.env
     networks:
       - kalendas-net
 
+  # Servicio de eventos
   event-service:
     build:
       context: ../services/event-service
       dockerfile: Dockerfile
-    env_file:
-      - ../services/event-service/.env
+    container_name: kalendas-event
+    restart: unless-stopped
     ports:
       - "3002:3002"
+    env_file:
+      - ./config/env/event.env
+    networks:
+      - kalendas-net
+
+  # Servicio de comentarios
+  comment-service:
+    build:
+      context: ../services/comment-service
+      dockerfile: Dockerfile
+    container_name: kalendas-comment
     restart: unless-stopped
+    ports:
+      - "3003:3003"
+    env_file:
+      - ./config/env/comment.env
+    networks:
+      - kalendas-net
+
+  # Servicio de notificaciones
+  notification-service:
+    build:
+      context: ../services/notification-service
+      dockerfile: Dockerfile
+    container_name: kalendas-notification
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    env_file:
+      - ./config/env/notification.env
     networks:
       - kalendas-net
 

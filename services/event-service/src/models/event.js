@@ -10,17 +10,16 @@ const eventSchema = new mongoose.Schema({
     type: Date,
     required: [true, 'Debe especificarse la hora de inicio del evento']
   },
-  duration: {
-    type: Number, // en minutos
-    required: [true, 'Debe especificarse la duración del evento'],
-    min: [1, 'La duración mínima es de 1 minuto']
+  endTime: {
+    type: Date,
+    required: [true, 'Debe especificarse la hora de finalización del evento']
   },
   location: {
     type: String,
     required: [true, 'Debe especificarse el lugar del evento']
   },
   organizer: {
-    type: String, // o ObjectId si luego se vincula con usuario autenticado
+    type: String,
     required: [true, 'Debe especificarse el organizador del evento']
   },
   calendar: {
@@ -41,29 +40,7 @@ const eventSchema = new mongoose.Schema({
     default: []
   },
   mapLink: {
-    type: String // URL a Google Maps, OpenStreetMap...
-  },
-  comments: [
-    {
-      user: { type: String, required: true }, // o ref a usuario si existe
-      text: { type: String, required: true },
-      date: { type: Date, default: Date.now }
-    }
-  ],
-  notifications: [
-    {
-      user: { type: String, required: true },
-      minutesBefore: { type: Number, default: 30 }, // tiempo de antelación
-      active: { type: Boolean, default: true }
-    }
-  ],
-  createdBy: {
-    type: String, // se reemplazará luego por el ID del usuario OAuth
-    required: true
-  },
-  deleted: {
-    type: Boolean,
-    default: false
+    type: String
   }
 }, {
   timestamps: true

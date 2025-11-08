@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependencias de producción
-RUN npm install --only=production
+RUN npm ci --only=production
 
 # Copiar código fuente
 COPY . .
@@ -15,7 +15,7 @@ COPY . .
 ENV NODE_ENV=production
 
 # Exponer puerto
-EXPOSE 3003
+EXPOSE 8080
 
 # Comando de inicio
 CMD ["node", "src/index.js"]

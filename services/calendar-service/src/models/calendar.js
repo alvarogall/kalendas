@@ -4,18 +4,19 @@ const calendarSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
-    minlength: 5
+    minlength: 3
   },
-  author: {
+  organizer: {
     type: String,
     required: true
   },
-  authorEmail: {
+  organizerEmail: {
     type: String,
     required: true
   },
   description: {
-    type: String
+    type: String,
+    maxlength: 2000
   },
   startDate: {
     type: Date,
@@ -24,25 +25,10 @@ const calendarSchema = new mongoose.Schema({
   endDate: {
     type: Date
   },
-  attendees: {
+  keywords: {
     type: [String],
     default: []
   },
-  url: {
-    type: String
-  },
-  likes: {
-    type: Number,
-    default: 0
-  },
-  events: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Event'
-  }],
-  sub_calendars: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Calendar'
-  }],
   notificationChannel: {
     type: String,
     enum: ['email', 'in-app'],

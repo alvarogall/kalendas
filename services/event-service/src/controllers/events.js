@@ -1,74 +1,46 @@
 const eventsRouter = require('express').Router()
 const Event = require('../models/event')
+const fetch = require('node-fetch')
+const config = require('../utils/config')
 
 eventsRouter.get('/', async (request, response) => {
-  const events = await Event.find({})
-  response.json(events)
-})
-
-eventsRouter.post('/', async (request, response) => {
-  const event = new Event(request.body)
-  const result = await event.save()
-  response.status(201).json(result)
-})
-
-eventsRouter.delete('/:id', async (request, response) => {
-  const result = await Event.findByIdAndDelete(request.params.id)
-  if (result) {
-    response.status(204).end()
-  } else {
-    response.status(404).json({ error: 'Event not found' })
-  }
-})
-
-eventsRouter.put('/:id', async(request, response) => {
-
-  const result = await Event.findByIdAndUpdate(
-    request.params.id,
-    request.body,
-    { new:true, runValidators:true, context:'query'}
-  )
-
-  if(result){
-    response.json(result)
-  }else{
-    response.status(404).json({error: 'Event not found'})
-  }
-})
-
-// helper: escape user input for RegExp to avoid syntax errors / DoS
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-// GET /api/events/search
-// Query params:
-//  - description: partial match on title OR description (case-insensitive)
-//  - organizer: exact match on organizer
-//  - calendar: calendar id (ObjectId string)
-//  - startAfter, startBefore: ISO date strings to filter by startTime
-// Example: /api/events/search?description=planning&organizer=maria&startAfter=2025-01-01
-eventsRouter.get('/search', async (request, response) => {
-  const { description, organizer, calendar, startAfter, startBefore } = request.query
-
+  const { description, organizer, calendarId, calendar, startAfter, startBefore, ids, commentedBy } = request.query
   const filter = { deleted: false }
+  let restrictIds = null
 
-  if (description && description.trim().length > 0) {
-    // escape user input and build case-insensitive regex
-    const safe = escapeRegExp(description.trim()).slice(0, 200) // limit length
+  if (ids && ids.trim()) {
+    const raw = ids.split(',').map(s => s.trim()).filter(Boolean)
+    const valid = raw.filter(v => /^[0-9a-fA-F]{24}$/.test(v))
+    if (valid.length > 0) {
+      filter._id = { $in: valid }
+    } else {
+      return response.json([])
+    }
+  }
+
+  if (description && description.trim()) {
+    const safe = description.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').slice(0, 200)
     const regex = new RegExp(safe, 'i')
     filter.$or = [{ description: regex }, { title: regex }]
   }
-
-  if (organizer && organizer.trim().length > 0) {
+  if (organizer && organizer.trim()) {
     filter.organizer = organizer.trim()
   }
-
-  if (calendar && calendar.trim().length > 0) {
-    filter.calendar = calendar.trim()
+  const cal = calendarId || calendar
+  if (cal && cal.trim()) {
+    filter.calendar = cal.trim()
   }
-
-  // optional date range filter
+  if (commentedBy && commentedBy.trim()) {
+    try {
+      const cres = await fetch(`${config.COMMENT_SERVICE_URL}/api/comments?user=${encodeURIComponent(commentedBy.trim())}`)
+      if (!cres.ok) return response.status(502).json({ error: 'upstream comment-service error' })
+      const comments = await cres.json()
+      const idsSet = new Set(comments.map(c => c.eventId).filter(Boolean))
+      restrictIds = idsSet
+    } catch (err) {
+      return response.status(500).json({ error: 'internal error', detail: err.message })
+    }
+  }
   if (startAfter || startBefore) {
     filter.startTime = {}
     if (startAfter) {
@@ -79,38 +51,56 @@ eventsRouter.get('/search', async (request, response) => {
       const d = new Date(startBefore)
       if (!isNaN(d)) filter.startTime.$lte = d
     }
-    // if both invalid, delete the filter
     if (Object.keys(filter.startTime).length === 0) delete filter.startTime
+  }
+  if (restrictIds) {
+    const restrictArr = Array.from(restrictIds)
+    if (filter._id && filter._id.$in) {
+      const current = new Set(filter._id.$in)
+      const intersect = restrictArr.filter(id => current.has(id))
+      if (intersect.length === 0) return response.json([])
+      filter._id.$in = intersect
+    } else {
+      filter._id = { $in: restrictArr }
+    }
   }
 
   const events = await Event.find(filter).sort({ startTime: -1 })
   response.json(events)
 })
 
-// GET /api/events/by-user/:user
-// Returns events where comments.user == :user OR createdBy == :user
-// Example: /api/events/by-user/ana@example.com
-eventsRouter.get('/by-user/:user', async (request, response) => {
-  const user = request.params.user
-  if (!user || user.trim().length === 0) {
-    return response.status(400).json({ error: 'User parameter is required' })
-  }
-
-  const events = await Event.find({
-    deleted: false,
-    $or: [
-      { 'comments.user': user },
-      { createdBy: user }
-    ]
-  }).sort({ startTime: -1 })
-
-  response.json(events)
+eventsRouter.post('/', async (request, response) => {
+  const event = new Event(request.body)
+  const result = await event.save()
+  response.status(201).json(result)
 })
 
 eventsRouter.get('/:id', async (request, response) => {
   const event = await Event.findById(request.params.id)
   if (event) {
     response.json(event)
+  } else {
+    response.status(404).json({ error: 'Event not found' })
+  }
+})
+
+eventsRouter.put('/:id', async (request, response) => {
+  const result = await Event.findByIdAndUpdate(
+    request.params.id,
+    request.body,
+    { new: true, runValidators: true, context: 'query' }
+  )
+  if (result) {
+    response.json(result)
+  } else {
+    response.status(404).json({ error: 'Event not found' })
+  }
+})
+
+eventsRouter.delete('/:id', async (request, response) => {
+  const result = await Event.findByIdAndDelete(request.params.id)
+  if (result) {
+    response.status(204).end()
   } else {
     response.status(404).json({ error: 'Event not found' })
   }

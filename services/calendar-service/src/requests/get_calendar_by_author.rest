@@ -1,1 +1,1 @@
-GET http://localhost:3001/api/calendars/search/by-author?author=jose.perez
+GET http://localhost:3001/api/calendars/search/by-organizer?organizer=jose.perez

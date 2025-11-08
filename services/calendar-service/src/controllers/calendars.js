@@ -1,8 +1,72 @@
 const calendarsRouter = require('express').Router()
 const Calendar = require('../models/calendar')
+const fetch = require('node-fetch')
+const config = require('../utils/config')
 
 calendarsRouter.get('/', async (request, response) => {
-  const calendars = await Calendar.find({})
+  const { title, organizer, startDate, endDate, hasEventsByOrganizer, commentedBy } = request.query
+  const filter = {}
+  if (title && title.trim()) {
+    filter.title = { $regex: title.trim(), $options: 'i' }
+  }
+  if (organizer && organizer.trim()) {
+    filter.organizer = { $regex: organizer.trim(), $options: 'i' }
+  }
+  if (startDate || endDate) {
+    filter.startDate = {}
+    if (startDate) {
+      const sd = new Date(startDate)
+      if (!isNaN(sd)) filter.startDate.$gte = sd
+    }
+    if (endDate) {
+      const ed = new Date(endDate)
+      if (!isNaN(ed)) filter.startDate.$lte = ed
+    }
+    if (Object.keys(filter.startDate).length === 0) delete filter.startDate
+  }
+
+  let restrictIds = null
+
+  if (hasEventsByOrganizer && hasEventsByOrganizer.trim()) {
+    try {
+      const res = await fetch(`${config.EVENT_SERVICE_URL}/api/events?organizer=${encodeURIComponent(hasEventsByOrganizer.trim())}`)
+      if (!res.ok) return response.status(502).json({ error: 'upstream event-service error' })
+      const events = await res.json()
+      const ids = new Set(events.map(e => e.calendar).filter(Boolean))
+      restrictIds = restrictIds ? new Set([...restrictIds].filter(x => ids.has(x))) : ids
+    } catch (err) {
+      return response.status(500).json({ error: 'internal error', detail: err.message })
+    }
+  }
+
+  if (commentedBy && commentedBy.trim()) {
+    try {
+      const cres = await fetch(`${config.COMMENT_SERVICE_URL}/api/comments?user=${encodeURIComponent(commentedBy.trim())}`)
+      if (!cres.ok) return response.status(502).json({ error: 'upstream comment-service error' })
+      const comments = await cres.json()
+      const eventIds = Array.from(new Set(comments.map(c => c.eventId).filter(Boolean)))
+      if (eventIds.length === 0) {
+        return response.json([])
+      }
+      const idsCsv = eventIds.slice(0, 200).join(',') // defensive limit
+      const eres = await fetch(`${config.EVENT_SERVICE_URL}/api/events?ids=${encodeURIComponent(idsCsv)}`)
+      if (!eres.ok) return response.status(502).json({ error: 'upstream event-service error' })
+      const evs = await eres.json()
+      const ids = new Set(evs.map(e => e.calendar).filter(Boolean))
+      restrictIds = restrictIds ? new Set([...restrictIds].filter(x => ids.has(x))) : ids
+    } catch (err) {
+      return response.status(500).json({ error: 'internal error', detail: err.message })
+    }
+  }
+
+  if (restrictIds && restrictIds.size === 0) {
+    return response.json([])
+  }
+  if (restrictIds) {
+    filter._id = { $in: Array.from(restrictIds) }
+  }
+
+  const calendars = await Calendar.find(filter).sort({ startDate: -1 })
   response.json(calendars)
 })
 
@@ -10,6 +74,15 @@ calendarsRouter.post('/', async (request, response) => {
   const calendar = new Calendar(request.body)
   const result = await calendar.save()
   response.status(201).json(result)
+})
+
+calendarsRouter.get('/:id', async (request, response) => {
+  const calendar = await Calendar.findById(request.params.id)
+  if (calendar) {
+    response.json(calendar)
+  } else {
+    response.status(404).json({ error: 'Calendar not found' })
+  }
 })
 
 calendarsRouter.put('/:id', async (request, response) => {
@@ -35,62 +108,6 @@ calendarsRouter.delete('/:id', async (request, response) => {
   }
 })
 
-calendarsRouter.get('/:id', async (request, response) => {
-  const calendar = await Calendar.findById(request.params.id)
-  if (calendar) {
-    response.json(calendar)
-  } else {
-    response.status(404).json({ error: 'Calendar not found' })
-  }
-})
-
-calendarsRouter.get('/search/by-author', async (request, response) => {
-  const { author } = request.query;
-  
-  if (!author) {
-    return response.status(400).json({ error: 'Author parameter is required' });
-  }
-  
-  const calendars = await Calendar.find({ 
-    author: { $regex: author, $options: 'i' } // búsqueda case-insensitive
-  }).sort({ startDate: -1 });
-  
-  response.json(calendars);
-})
-
-calendarsRouter.get('/search/by-date-range', async (request, response) => {
-  const { startDate, endDate } = request.query;
-  
-  if (!startDate || !endDate) {
-    return response.status(400).json({ 
-      error: 'Both startDate and endDate parameters are required' 
-    });
-  }
-
-  const calendars = await Calendar.find({
-    startDate: { 
-      $gte: new Date(startDate),
-      $lte: new Date(endDate)
-    }
-  }).sort({ startDate: -1 });
-  
-  response.json(calendars);
-})
-
-calendarsRouter.get('/search/by-title', async (request, response) => {
-  const { title } = request.query;
-  
-  if (!title) {
-    return response.status(400).json({ error: 'Title parameter is required' });
-  }
-  
-  const calendars = await Calendar.find({ 
-    title: { $regex: title, $options: 'i' } // búsqueda case-insensitive y parcial
-  }).sort({ startDate: -1 });
-  
-  response.json(calendars);
-})
-
 calendarsRouter.get('/:id/subcalendars', async (request, response) => {
   const calendar = await Calendar.findById(request.params.id)
     .populate('sub_calendars');
@@ -99,16 +116,6 @@ calendarsRouter.get('/:id/subcalendars', async (request, response) => {
     return response.status(404).json({ error: 'Calendar not found' });
   }
   response.json(calendar.sub_calendars);
-})
-
-calendarsRouter.get('/:id/events', async (request, response) => {
-  const calendar = await Calendar.findById(request.params.id);
-  
-  if (!calendar) {
-    return response.status(404).json({ error: 'Calendar not found' });
-  }
-  
-  response.json(calendar.events);
 })
 
 module.exports = calendarsRouter
