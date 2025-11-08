@@ -1,1 +1,2 @@
-GET http://localhost:3003/api/comments/event/672d8b3f52cdad7c5fa1f2e1
+GET http://localhost:3003/api/comments?eventId=68f3661d0691dab055cb6e65
+Accept: application/json

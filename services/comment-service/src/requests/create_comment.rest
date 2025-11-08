@@ -2,7 +2,7 @@ POST http://localhost:3003/api/comments
 Content-Type: application/json
 
 {
-    "text": "Excelente evento, aprendí mucho",
-    "author": "Juan Pérez",
-    "eventId": "672d8b3f52cdad7c5fa1f2e1"
+    "eventId": "68f3661d0691dab055cb6e65",
+    "user": "Laura Gómez",
+    "text": "Excelente evento, aprendí mucho asistiendo."
 }

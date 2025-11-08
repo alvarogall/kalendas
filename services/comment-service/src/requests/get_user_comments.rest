@@ -1,1 +1,2 @@
-GET http://localhost:3003/api/comments/user/Juan
+GET http://localhost:3003/api/comments?user=Laura Gómez
+Accept: application/json
