@@ -1,0 +1,2 @@
+GET http://localhost:3001/api/events/68f3661d0691dab055cb6e65/calendar
+Accept: application/json

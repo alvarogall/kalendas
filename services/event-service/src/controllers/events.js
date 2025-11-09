@@ -106,4 +106,52 @@ eventsRouter.delete('/:id', async (request, response) => {
   }
 })
 
+// Get comments that belong to a specific event
+// If COMMENT_SERVICE_URL is not configured, returns 502
+eventsRouter.get('/:id/comments', async (request, response) => {
+  const eventId = request.params.id
+  const event = await Event.findById(eventId)
+  if (!event) {
+    return response.status(404).json({ error: 'Event not found' })
+  }
+  if (!config.COMMENT_SERVICE_URL) {
+    return response.status(502).json({ error: 'comment service not configured' })
+  }
+  try {
+    const cres = await fetch(`${config.COMMENT_SERVICE_URL}/api/comments?eventId=${encodeURIComponent(eventId)}`)
+    if (!cres.ok) return response.status(502).json({ error: 'upstream comment-service error' })
+    const comments = await cres.json()
+    return response.json(comments)
+  } catch (err) {
+    return response.status(500).json({ error: 'internal error', detail: err.message })
+  }
+})
+
+// Get the calendar to which a specific event belongs
+// If CALENDAR_SERVICE_URL is configured, this will fetch the calendar details from that service.
+// Otherwise it will return the calendar id stored on the event document.
+eventsRouter.get('/:id/calendar', async (request, response) => {
+  const eventId = request.params.id
+  const event = await Event.findById(eventId)
+  if (!event) {
+    return response.status(404).json({ error: 'Event not found' })
+  }
+  const calendarId = event.calendar
+  if (!calendarId) {
+    return response.status(404).json({ error: 'Event has no calendar' })
+  }
+  if (!config.CALENDAR_SERVICE_URL) {
+    // Return only the id when no calendar service is configured
+    return response.json({ calendarId })
+  }
+  try {
+    const cres = await fetch(`${config.CALENDAR_SERVICE_URL}/api/calendars/${encodeURIComponent(calendarId)}`)
+    if (!cres.ok) return response.status(502).json({ error: 'upstream calendar-service error' })
+    const calendar = await cres.json()
+    return response.json(calendar)
+  } catch (err) {
+    return response.status(500).json({ error: 'internal error', detail: err.message })
+  }
+})
+
 module.exports = eventsRouter
