@@ -5,7 +5,7 @@ const config = require('../utils/config')
 
 eventsRouter.get('/', async (request, response) => {
   const { description, organizer, calendarId, calendar, startAfter, startBefore, ids, commentedBy } = request.query
-  const filter = { deleted: false }
+  const filter = {}
   let restrictIds = null
 
   if (ids && ids.trim()) {

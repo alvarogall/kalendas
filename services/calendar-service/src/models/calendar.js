@@ -33,7 +33,11 @@ const calendarSchema = new mongoose.Schema({
     type: String,
     enum: ['email', 'in-app'],
     default: 'email'
-  }
+  },
+  subCalendars: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Calendar'
+  }]
 }, {
   timestamps: true
 });

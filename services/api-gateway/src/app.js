@@ -7,7 +7,7 @@ const logger = require('./utils/logger')
 const app = express()
 
 app.use(cors())
-app.use(express.json())
+// app.use(express.json()) - Removed to avoid conflict with http-proxy-middleware
 
 app.use((req, _res, next) => {
   logger.info('Gateway', req.method, req.path)

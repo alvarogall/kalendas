@@ -1,7 +1,4 @@
-
-
 services:
-  # API Gateway
   api-gateway:
     build:
       context: ../services/api-gateway
@@ -20,7 +17,6 @@ services:
       - comment-service
       - notification-service
 
-  # Servicio de calendarios
   calendar-service:
     build:
       context: ../services/calendar-service
@@ -34,7 +30,6 @@ services:
     networks:
       - kalendas-net
 
-  # Servicio de eventos
   event-service:
     build:
       context: ../services/event-service
@@ -48,7 +43,6 @@ services:
     networks:
       - kalendas-net
 
-  # Servicio de comentarios
   comment-service:
     build:
       context: ../services/comment-service
@@ -62,7 +56,6 @@ services:
     networks:
       - kalendas-net
 
-  # Servicio de notificaciones
   notification-service:
     build:
       context: ../services/notification-service
@@ -75,6 +68,19 @@ services:
       - ./config/env/notification.env
     networks:
       - kalendas-net
+
+  webapp:
+    build:
+      context: ../webapp
+      dockerfile: Dockerfile
+    container_name: kalendas-webapp
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    networks:
+      - kalendas-net
+    depends_on:
+      - api-gateway
 
 networks:
   kalendas-net:

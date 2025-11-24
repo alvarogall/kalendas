@@ -110,12 +110,12 @@ calendarsRouter.delete('/:id', async (request, response) => {
 
 calendarsRouter.get('/:id/subcalendars', async (request, response) => {
   const calendar = await Calendar.findById(request.params.id)
-    .populate('sub_calendars');
+    .populate('subCalendars');
   
   if (!calendar) {
     return response.status(404).json({ error: 'Calendar not found' });
   }
-  response.json(calendar.sub_calendars);
+  response.json(calendar.subCalendars);
 })
 
 module.exports = calendarsRouter
