@@ -6,7 +6,6 @@ import PersonIcon from '@mui/icons-material/Person';
 const Comments = ({ comments, onRemoveComment }) => {
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>Comentarios</Typography>
       {comments.length === 0 ? (
         <Typography variant="body2" color="text.secondary">No hay comentarios aún.</Typography>
       ) : (

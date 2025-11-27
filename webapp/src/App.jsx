@@ -176,7 +176,7 @@ const App = () => {
       .catch(error => notify(error.response?.data?.error || error.message, 'error'))
   }
 
-  const handleRemoveCalendar = (id, title) => () => {
+  const handleRemoveCalendar = (id, title) => {
     setConfirmDialog({
       open: true,
       title: `¿Eliminar calendario "${title}"?`,
