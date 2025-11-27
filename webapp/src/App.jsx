@@ -17,6 +17,7 @@ import calendarService from './services/calendars'
 import eventService from './services/events'
 import commentService from './services/comments'
 import notificationService from './services/notifications'
+import uploadService from './services/upload'
 
 const App = () => {
   const [calendars, setCalendars] = useState([])
@@ -212,47 +213,51 @@ const App = () => {
 
   const handleImageChange = (event) => {
     const file = event.target.files[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setNewEventImage(reader.result)
-      }
-      reader.readAsDataURL(file)
-    }
+    setNewEventImage(file)
   }
 
-  const handleAddEvent = (event) => {
+  const handleAddEvent = async (event) => {
     event.preventDefault()
-    const eventObject = {
-      title: newEventTitle,
-      startTime: new Date(newEventStart).toISOString(),
-      endTime: new Date(newEventEnd).toISOString(),
-      location: newEventLocation,
-      description: newEventDesc,
-      organizer: 'CurrentUser',
-      calendar: newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : calendars[0]?.id),
-      images: newEventImage ? [newEventImage] : []
-    }
 
-    if (!eventObject.calendar) {
-      notify('Please create or select a calendar first', 'error')
-      return
-    }
+    try {
+      let imageUrl = ''
+      if (newEventImage) {
+        notify('Uploading image...', 'info')
+        imageUrl = await uploadService.uploadImage(newEventImage)
+      }
 
-    eventService.create(eventObject)
-      .then(returnedEvent => {
-        setEvents(events.concat(returnedEvent))
-        setNewEventTitle('')
-        setNewEventStart('')
-        setNewEventEnd('')
-        setNewEventLocation('')
-        setNewEventDesc('')
-        setNewEventImage(null)
-        setNewEventCalendar('')
-        setIsEventFormOpen(false) // Close dialog
-        notify(`Added event ${returnedEvent.title}`)
-      })
-      .catch(error => notify(error.response?.data?.error || error.message, 'error'))
+      const eventObject = {
+        title: newEventTitle,
+        startTime: new Date(newEventStart).toISOString(),
+        endTime: new Date(newEventEnd).toISOString(),
+        location: newEventLocation,
+        description: newEventDesc,
+        organizer: 'CurrentUser',
+        calendar: newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : calendars[0]?.id),
+        images: imageUrl ? [imageUrl] : []
+      }
+
+      if (!eventObject.calendar) {
+        notify('Please create or select a calendar first', 'error')
+        return
+      }
+
+      const returnedEvent = await eventService.create(eventObject)
+      setEvents(events.concat(returnedEvent))
+      setNewEventTitle('')
+      setNewEventStart('')
+      setNewEventEnd('')
+      setNewEventLocation('')
+      setNewEventDesc('')
+      setNewEventImage(null)
+      setNewEventCalendar('')
+      setIsEventFormOpen(false) // Close dialog
+      notify(`Added event ${returnedEvent.title}`)
+    } catch (error) {
+      console.error('Error adding event:', error)
+      const errorMessage = error.response?.data?.error?.message || error.message || 'Unknown error'
+      notify(errorMessage, 'error')
+    }
   }
 
   const handleRemoveEvent = (id, title) => () => {
