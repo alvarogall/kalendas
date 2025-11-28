@@ -18,6 +18,7 @@ import eventService from './services/events'
 import dropboxService from './services/dropbox'
 import commentService from './services/comments'
 import notificationService from './services/notifications'
+import uploadService from './services/upload'
 
 const App = () => {
   const [calendars, setCalendars] = useState([])
@@ -184,7 +185,7 @@ const App = () => {
       .catch(error => notify(error.response?.data?.error || error.message, 'error'))
   }
 
-  const handleRemoveCalendar = (id, title) => () => {
+  const handleRemoveCalendar = (id, title) => {
     setConfirmDialog({
       open: true,
       title: `¿Eliminar calendario "${title}"?`,
@@ -224,7 +225,6 @@ const App = () => {
       const reader = new FileReader()
       reader.onloadend = () => {
         setNewEventImage(reader.result)
-        setImageRemoved(false)
       }
       reader.readAsDataURL(file)
     }
@@ -279,52 +279,35 @@ const App = () => {
     setIsEventFormOpen(true)
   }
 
-  const handleAddEvent = (event) => {
+  const handleAddEvent = async (event) => {
     event.preventDefault()
-    const eventObject = {
-      title: newEventTitle,
-      startTime: new Date(newEventStart).toISOString(),
-      endTime: new Date(newEventEnd).toISOString(),
-      location: newEventLocation,
-      description: newEventDesc,
-      organizer: 'CurrentUser',
-      calendar: newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : calendars[0]?.id),
-      images: newEventImage ? [newEventImage] : []
-    }
 
-    if (!eventObject.calendar) {
-      notify('Please create or select a calendar first', 'error')
-      return
-    }
+    try {
+      let imageUrl = ''
+      if (newEventImage) {
+        notify('Uploading image...', 'info')
+        imageUrl = await uploadService.uploadImage(newEventImage)
+      }
+
+      const eventObject = {
+        title: newEventTitle,
+        startTime: new Date(newEventStart).toISOString(),
+        endTime: new Date(newEventEnd).toISOString(),
+        location: newEventLocation,
+        description: newEventDesc,
+        organizer: 'CurrentUser',
+        calendar: newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : calendars[0]?.id),
+        images: imageUrl ? [imageUrl] : []
+      }
+
+      if (!eventObject.calendar) {
+        notify('Please create or select a calendar first', 'error')
+        return
+      }
 
     eventService.create(eventObject)
       .then(returnedEvent => {
-        // If user attached a document, upload it directly to Dropbox, then save URL in the event
-        if (newAttachment) {
-          setUploadingAttachment(true)
-          setUploadingAttachmentName(newAttachment.name)
-          dropboxService.uploadFile(newAttachment)
-            .then(url => {
-              const withAttachment = { ...returnedEvent, attachments: [(returnedEvent.attachments || []).concat([url])].flat() }
-              // update event on backend to persist attachments array
-              eventService.update(returnedEvent.id, { attachments: withAttachment.attachments })
-                .then(updated => setEvents(events.concat(updated)))
-                .catch(err => {
-                  notify(`Event created but failed to persist attachment URL: ${err.message}`, 'warning')
-                  setEvents(events.concat(returnedEvent))
-                })
-            })
-            .catch(err => {
-              notify(`Event created but failed to upload attachment: ${err.message}`, 'warning')
-              setEvents(events.concat(returnedEvent))
-            })
-            .finally(() => {
-              setUploadingAttachment(false)
-              setUploadingAttachmentName('')
-            })
-        } else {
-          setEvents(events.concat(returnedEvent))
-        }
+        setEvents(events.concat(returnedEvent))
         setNewEventTitle('')
         setNewEventStart('')
         setNewEventEnd('')
@@ -332,7 +315,6 @@ const App = () => {
         setNewEventDesc('')
         setNewEventImage(null)
         setNewEventCalendar('')
-        setNewAttachment(null)
         setIsEventFormOpen(false) // Close dialog
         notify(`Added event ${returnedEvent.title}`)
       })
