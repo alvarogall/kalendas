@@ -77,6 +77,8 @@ services:
     restart: unless-stopped
     ports:
       - "5173:5173"
+    env_file:
+      - ./config/env/webapp.env
     networks:
       - kalendas-net
     depends_on:

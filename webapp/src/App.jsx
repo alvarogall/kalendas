@@ -15,6 +15,7 @@ import Filter from './components/Filter'
 import AdvancedSearch from './components/AdvancedSearch'
 import calendarService from './services/calendars'
 import eventService from './services/events'
+import dropboxService from './services/dropbox'
 import commentService from './services/comments'
 import notificationService from './services/notifications'
 
@@ -49,6 +50,13 @@ const App = () => {
   const [newEventDesc, setNewEventDesc] = useState('')
   const [newEventImage, setNewEventImage] = useState(null)
   const [newEventCalendar, setNewEventCalendar] = useState('')
+  const [newAttachment, setNewAttachment] = useState(null)
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
+  const [uploadingAttachmentName, setUploadingAttachmentName] = useState('')
+
+  const [editingEvent, setEditingEvent] = useState(null)
+  const [eventToOpenId, setEventToOpenId] = useState(null)
+  const [imageRemoved, setImageRemoved] = useState(false)
 
   const [isCalendarFormOpen, setIsCalendarFormOpen] = useState(false)
   const [isEventFormOpen, setIsEventFormOpen] = useState(false)
@@ -216,9 +224,59 @@ const App = () => {
       const reader = new FileReader()
       reader.onloadend = () => {
         setNewEventImage(reader.result)
+        setImageRemoved(false)
       }
       reader.readAsDataURL(file)
     }
+  }
+
+  const handleAttachmentChange = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      setNewAttachment(file)
+    }
+  }
+
+  const formatDateTimeLocal = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (isNaN(d)) return ''
+    const pad = n => n.toString().padStart(2, '0')
+    const yyyy = d.getFullYear()
+    const mm = pad(d.getMonth() + 1)
+    const dd = pad(d.getDate())
+    const hh = pad(d.getHours())
+    const mi = pad(d.getMinutes())
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
+  }
+
+  const handleOpenEditEvent = (event) => {
+    setEditingEvent(event)
+    setNewEventTitle(event.title || '')
+    setNewEventStart(formatDateTimeLocal(event.startTime))
+    setNewEventEnd(formatDateTimeLocal(event.endTime))
+    setNewEventLocation(event.location || '')
+    setNewEventDesc(event.description || '')
+    setNewEventImage(event.images && event.images.length > 0 ? event.images[0] : null)
+    setImageRemoved(false)
+    setNewEventCalendar(event.calendar || '')
+    setIsEventFormOpen(true)
+  }
+
+  const openCreateEventForm = () => {
+    setEditingEvent(null)
+    setNewEventTitle('')
+    const now = new Date()
+    const inOneHour = new Date(now.getTime() + 60 * 60 * 1000)
+    setNewEventStart(formatDateTimeLocal(now.toISOString()))
+    setNewEventEnd(formatDateTimeLocal(inOneHour.toISOString()))
+    setNewEventLocation('')
+    setNewEventDesc('')
+    setNewEventImage(null)
+    setImageRemoved(false)
+    const defaultCal = selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : (calendars[0]?.id || '')
+    setNewEventCalendar(defaultCal)
+    setIsEventFormOpen(true)
   }
 
   const handleAddEvent = (event) => {
@@ -241,7 +299,32 @@ const App = () => {
 
     eventService.create(eventObject)
       .then(returnedEvent => {
-        setEvents(events.concat(returnedEvent))
+        // If user attached a document, upload it directly to Dropbox, then save URL in the event
+        if (newAttachment) {
+          setUploadingAttachment(true)
+          setUploadingAttachmentName(newAttachment.name)
+          dropboxService.uploadFile(newAttachment)
+            .then(url => {
+              const withAttachment = { ...returnedEvent, attachments: [(returnedEvent.attachments || []).concat([url])].flat() }
+              // update event on backend to persist attachments array
+              eventService.update(returnedEvent.id, { attachments: withAttachment.attachments })
+                .then(updated => setEvents(events.concat(updated)))
+                .catch(err => {
+                  notify(`Event created but failed to persist attachment URL: ${err.message}`, 'warning')
+                  setEvents(events.concat(returnedEvent))
+                })
+            })
+            .catch(err => {
+              notify(`Event created but failed to upload attachment: ${err.message}`, 'warning')
+              setEvents(events.concat(returnedEvent))
+            })
+            .finally(() => {
+              setUploadingAttachment(false)
+              setUploadingAttachmentName('')
+            })
+        } else {
+          setEvents(events.concat(returnedEvent))
+        }
         setNewEventTitle('')
         setNewEventStart('')
         setNewEventEnd('')
@@ -249,8 +332,87 @@ const App = () => {
         setNewEventDesc('')
         setNewEventImage(null)
         setNewEventCalendar('')
+        setNewAttachment(null)
         setIsEventFormOpen(false) // Close dialog
         notify(`Added event ${returnedEvent.title}`)
+      })
+      .catch(error => notify(error.response?.data?.error || error.message, 'error'))
+  }
+
+  const handleUpdateEvent = (e) => {
+    e.preventDefault()
+    if (!editingEvent) return
+    const updated = {
+      title: newEventTitle,
+      startTime: new Date(newEventStart).toISOString(),
+      endTime: new Date(newEventEnd).toISOString(),
+      location: newEventLocation,
+      description: newEventDesc,
+      organizer: editingEvent.organizer || 'CurrentUser',
+      calendar: newEventCalendar || editingEvent.calendar,
+      images: newEventImage ? [newEventImage] : (editingEvent.images || [])
+    }
+
+    // decide images according to new image / removal flag
+    if (newEventImage) {
+      updated.images = [newEventImage]
+    } else if (imageRemoved) {
+      updated.images = []
+    } else {
+      updated.images = editingEvent.images || []
+    }
+
+    eventService.update(editingEvent.id, updated)
+      .then(returnedEvent => {
+        const handleUpdatedEvent = (updatedEvent) => {
+          setEvents(events.map(ev => ev.id === updatedEvent.id ? updatedEvent : ev))
+          setEditingEvent(null)
+          setNewEventTitle('')
+          setNewEventStart('')
+          setNewEventEnd('')
+          setNewEventLocation('')
+          setNewEventDesc('')
+          setNewEventImage(null)
+          setNewEventCalendar('')
+          setImageRemoved(false)
+          setNewAttachment(null)
+          setIsEventFormOpen(false)
+          // Ask CalendarView to reopen the updated event so user sees the latest values
+          setEventToOpenId(updatedEvent.id)
+          notify(`Updated event ${updatedEvent.title}`)
+        }
+
+        if (newAttachment) {
+          // upload to Dropbox then persist attachment URL in the event
+          setUploadingAttachment(true)
+          setUploadingAttachmentName(newAttachment.name)
+          dropboxService.uploadFile(newAttachment)
+            .then(url => {
+              const attachments = (returnedEvent.attachments || []).concat([url])
+              eventService.update(returnedEvent.id, { attachments })
+                .then(updatedEvent => handleUpdatedEvent(updatedEvent))
+                .catch(err => {
+                  setEvents(events.map(ev => ev.id === returnedEvent.id ? returnedEvent : ev))
+                  setEditingEvent(null)
+                  setNewAttachment(null)
+                  setIsEventFormOpen(false)
+                  notify(`Updated event but failed to persist attachment URL: ${err.message}`, 'warning')
+                })
+            })
+            .catch(err => {
+              setEvents(events.map(ev => ev.id === returnedEvent.id ? returnedEvent : ev))
+              setEditingEvent(null)
+              setNewAttachment(null)
+              setIsEventFormOpen(false)
+              notify(`Updated event but failed to upload attachment: ${err.message}`, 'warning')
+            })
+            .finally(() => {
+              setUploadingAttachment(false)
+              setUploadingAttachmentName('')
+            })
+        } else {
+          handleUpdatedEvent(returnedEvent)
+        }
       })
       .catch(error => notify(error.response?.data?.error || error.message, 'error'))
   }
@@ -414,7 +576,7 @@ const App = () => {
                 <Button 
                   variant="contained" 
                   startIcon={<AddIcon />} 
-                  onClick={() => setIsEventFormOpen(true)} 
+                  onClick={openCreateEventForm} 
                   sx={{ 
                     ml: 2,
                     borderRadius: 20,
@@ -435,13 +597,16 @@ const App = () => {
             onAddComment={handleAddComment}
             onRemoveComment={handleRemoveComment}
             onFetchComments={handleFetchComments}
+            onEditEvent={handleOpenEditEvent}
+            openEventId={eventToOpenId}
+            onOpenHandled={() => setEventToOpenId(null)}
           />
 
-          <Dialog open={isEventFormOpen} onClose={() => setIsEventFormOpen(false)}>
-            <DialogTitle>Create Event</DialogTitle>
+          <Dialog open={isEventFormOpen} onClose={() => { setIsEventFormOpen(false); setEditingEvent(null); }}>
+            <DialogTitle>{editingEvent ? 'Edit Event' : 'Create Event'}</DialogTitle>
             <DialogContent>
               <EventForm
-                onSubmit={handleAddEvent}
+                onSubmit={editingEvent ? handleUpdateEvent : handleAddEvent}
                 title={newEventTitle}
                 onTitleChange={({ target }) => setNewEventTitle(target.value)}
                 start={newEventStart}
@@ -453,13 +618,20 @@ const App = () => {
                 description={newEventDesc}
                 onDescriptionChange={({ target }) => setNewEventDesc(target.value)}
                 onImageChange={handleImageChange}
+                image={newEventImage}
+                onRemoveImage={() => { setNewEventImage(null); setImageRemoved(true); }}
+                attachment={newAttachment}
+                onAttachmentChange={handleAttachmentChange}
+                onRemoveAttachment={() => setNewAttachment(null)}
+                uploadingAttachment={uploadingAttachment}
+                uploadingAttachmentName={uploadingAttachmentName}
                 calendars={calendars}
                 selectedCalendar={newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : '')}
                 onCalendarChange={({ target }) => setNewEventCalendar(target.value)}
               />
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setIsEventFormOpen(false)}>Cancel</Button>
+              <Button onClick={() => { setIsEventFormOpen(false); setEditingEvent(null); }}>Cancel</Button>
             </DialogActions>
           </Dialog>
         </Box>

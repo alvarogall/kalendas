@@ -6,7 +6,16 @@ import startOfWeek from 'date-fns/startOfWeek'
 import getDay from 'date-fns/getDay'
 import es from 'date-fns/locale/es'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
-import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Card, CardMedia } from '@mui/material'
+import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Card, CardMedia, Paper, Avatar, Link, Stack, IconButton } from '@mui/material'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import ImageIcon from '@mui/icons-material/Image'
+import VideocamIcon from '@mui/icons-material/Videocam'
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile'
+import DownloadIcon from '@mui/icons-material/Download'
+import DeleteIcon from '@mui/icons-material/Delete'
+import CircularProgress from '@mui/material/CircularProgress'
+import dropboxService, { deleteBySharedLink } from '../services/dropbox'
+import eventsService from '../services/events'
 import Map from './Map'
 import Comments from './Comments'
 import CommentForm from './CommentForm'
@@ -48,7 +57,7 @@ const EventComponent = ({ event }) => {
   )
 }
 
-const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveComment, onFetchComments }) => {
+const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveComment, onFetchComments, onEditEvent, openEventId, onOpenHandled }) => {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [newCommentText, setNewCommentText] = useState('')
   const [newCommentUser, setNewCommentUser] = useState('')
@@ -58,6 +67,24 @@ const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveC
     setSelectedEvent(event)
     onFetchComments(event.id)
   }
+
+  // If parent requests to open a specific event (e.g. after update), open its dialog
+  React.useEffect(() => {
+    if (!openEventId) return
+    const ev = events.find(e => e.id === openEventId)
+    if (!ev) return
+    const calEvent = {
+      id: ev.id,
+      title: ev.title,
+      start: new Date(ev.startTime),
+      end: new Date(ev.endTime),
+      resource: ev
+    }
+    setSelectedEvent(calEvent)
+    onFetchComments(ev.id)
+    if (onOpenHandled) onOpenHandled()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEventId])
 
   const handleCloseDialog = () => {
     setSelectedEvent(null)
@@ -157,12 +184,71 @@ const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveC
                 </Box>
               )}
 
+              {selectedEvent.resource.attachments && selectedEvent.resource.attachments.length > 0 && (
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>Archivos adjuntos</Typography>
+                  <Stack direction="column" spacing={1}>
+                    {selectedEvent.resource.attachments.map((att, i) => {
+                      // Try to extract filename and extension
+                      let filename = att.split('/').pop().split('?')[0]
+                      const extMatch = filename.match(/\.([a-zA-Z0-9]+)$/)
+                      const ext = extMatch ? extMatch[1].toLowerCase() : ''
+                      let Icon = InsertDriveFileIcon
+                      if (ext === 'pdf') Icon = PictureAsPdfIcon
+                      else if (['png','jpg','jpeg','gif','webp'].includes(ext)) Icon = ImageIcon
+                      else if (['mp4','mov','webm','mkv','avi'].includes(ext)) Icon = VideocamIcon
+
+                      return (
+                        <Paper key={i} elevation={1} sx={{ display: 'flex', alignItems: 'center', p: 1 }}>
+                          <Avatar sx={{ bgcolor: '#1976d2', width: 40, height: 40, mr: 1 }}>
+                            <Icon htmlColor="#fff" />
+                          </Avatar>
+                          <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                            <Link href={att} target="_blank" rel="noreferrer" underline="hover" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {filename}
+                            </Link>
+                            <Typography variant="caption" color="text.secondary">{ext ? ext.toUpperCase() : 'FILE'}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                            <IconButton aria-label="download" component="a" href={att} target="_blank" rel="noreferrer">
+                              <DownloadIcon />
+                            </IconButton>
+                            <IconButton aria-label="delete" color="error" onClick={async () => {
+                              const confirm = window.confirm(`Eliminar archivo \"${filename}\" de Dropbox y del evento?`)
+                              if (!confirm) return
+                              try {
+                                // show a simple inline spinner while deleting
+                                const spinner = document.createElement('span')
+                                spinner.className = 'spinner'
+                                // Call Dropbox API delete helper
+                                await deleteBySharedLink(att)
+                                // Remove attachment from event and persist
+                                const updated = { ...selectedEvent.resource }
+                                updated.attachments = updated.attachments.filter(x => x !== att)
+                                await eventsService.update(updated.id || selectedEvent.id, updated)
+                                // Update UI
+                                setSelectedEvent({ ...selectedEvent, resource: updated })
+                                alert('Archivo eliminado correctamente')
+                              } catch (err) {
+                                console.error(err)
+                                alert('Error al eliminar archivo: ' + (err.message || err))
+                              }
+                            }}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
+                        </Paper>
+                      )
+                    })}
+                  </Stack>
+                </Box>
+              )}
+
               <Box sx={{ mt: 2, mb: 2 }}>
                 <Map location={selectedEvent.resource.location} />
               </Box>
 
               <Box sx={{ mt: 3 }}>
-                <Typography variant="h6">Comentarios</Typography>
                 <Comments
                   comments={comments}
                   onRemoveComment={onRemoveComment}
@@ -187,6 +273,9 @@ const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveC
 
             </DialogContent>
             <DialogActions>
+              <Button color="primary" onClick={() => onEditEvent && onEditEvent(selectedEvent.resource)}>
+                Editar Evento
+              </Button>
               <Button color="error" onClick={handleDelete}>
                 Eliminar Evento
               </Button>

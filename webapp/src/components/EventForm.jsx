@@ -1,5 +1,5 @@
 import React from 'react';
-import { TextField, Button, Box, InputLabel, Select, MenuItem, FormControl } from '@mui/material';
+import { TextField, Button, Box, InputLabel, Select, MenuItem, FormControl, Typography, CircularProgress } from '@mui/material';
 
 const EventForm = ({ 
   onSubmit, 
@@ -9,6 +9,13 @@ const EventForm = ({
   location, onLocationChange, 
   description, onDescriptionChange, 
   onImageChange,
+  image,
+  onRemoveImage,
+  attachment,
+  onAttachmentChange,
+  onRemoveAttachment,
+  uploadingAttachment,
+  uploadingAttachmentName,
   calendars, selectedCalendar, onCalendarChange
 }) => (
   <form onSubmit={onSubmit}>
@@ -85,9 +92,36 @@ const EventForm = ({
           onChange={onImageChange} 
           style={{ marginTop: 8 }}
         />
+        {image && (
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <img src={image} alt="preview" style={{ maxHeight: 80, borderRadius: 4 }} />
+            <Button size="small" color="error" onClick={onRemoveImage}>Remove</Button>
+          </Box>
+        )}
       </Box>
-      <Button type="submit" variant="contained" color="primary" sx={{ alignSelf: 'flex-end' }}>
-        Save
+      <Box>
+        <InputLabel shrink>Attachment (document)</InputLabel>
+        <input
+          type="file"
+          accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          onChange={onAttachmentChange}
+          style={{ marginTop: 8 }}
+        />
+        {attachment && (
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2">{attachment.name}</Typography>
+            <Button size="small" color="error" onClick={onRemoveAttachment}>Remove</Button>
+          </Box>
+        )}
+        {uploadingAttachment && (
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={20} />
+            <Typography variant="body2">Subiendo {uploadingAttachmentName || 'archivo'}...</Typography>
+          </Box>
+        )}
+      </Box>
+      <Button type="submit" variant="contained" color="primary" sx={{ alignSelf: 'flex-end' }} disabled={uploadingAttachment}>
+        {uploadingAttachment ? 'Subiendo...' : 'Save'}
       </Button>
     </Box>
   </form>
