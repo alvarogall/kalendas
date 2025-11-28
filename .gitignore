@@ -34,10 +34,10 @@ jspm_packages/
 .eslintcache
 
 # Environment variable files (all .env files anywhere)
-#*.env
-#.env*
-#**/*.env
-#**/.env*
+*.env
+.env*
+**/*.env
+**/.env*
 
 # Editor directories and files
 .idea/
