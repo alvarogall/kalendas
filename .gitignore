@@ -34,10 +34,10 @@ jspm_packages/
 .eslintcache
 
 # Environment variable files (all .env files anywhere)
-*.env
-.env*
-**/*.env
-**/.env*
+#*.env
+#.env*
+#**/*.env
+#**/.env*
 
 # Editor directories and files
 .idea/
@@ -52,9 +52,8 @@ jspm_packages/
 .DS_Store
 Thumbs.db
 
-# Docker files
-docker-compose.override.yml
-docker-compose.*.yml
+
+
 
 
 # Coverage reports
