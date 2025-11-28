@@ -319,6 +319,10 @@ const App = () => {
         notify(`Added event ${returnedEvent.title}`)
       })
       .catch(error => notify(error.response?.data?.error || error.message, 'error'))
+    } catch (err) {
+      notify(err.response?.data?.error || err.message, 'error')
+    }
+
   }
 
   const handleUpdateEvent = (e) => {
