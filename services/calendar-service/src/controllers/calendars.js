@@ -100,7 +100,20 @@ calendarsRouter.put('/:id', async (request, response) => {
 })
 
 calendarsRouter.delete('/:id', async (request, response) => {
-  const result = await Calendar.findByIdAndDelete(request.params.id)
+  const calendarId = request.params.id
+
+  if (config.EVENT_SERVICE_URL) {
+    try {
+      const res = await fetch(`${config.EVENT_SERVICE_URL}/api/events?calendarId=${calendarId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        console.error('Failed to delete events for calendar', calendarId)
+      }
+    } catch (err) {
+      console.error('Error contacting event service', err)
+    }
+  }
+
+  const result = await Calendar.findByIdAndDelete(calendarId)
   if (result) {
     response.status(204).end()
   } else {

@@ -57,7 +57,7 @@ const EventComponent = ({ event }) => {
   )
 }
 
-const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveComment, onFetchComments, onEditEvent, openEventId, onOpenHandled }) => {
+const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveComment, onFetchComments, onEditEvent, openEventId, onOpenHandled, calendars }) => {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [newCommentText, setNewCommentText] = useState('')
   const [newCommentUser, setNewCommentUser] = useState('')
@@ -167,6 +167,9 @@ const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveC
               </Typography>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Ubicación: {selectedEvent.resource.location}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Calendario: {calendars?.find(c => c.id === selectedEvent.resource.calendar)?.title || 'Desconocido'}
               </Typography>
 
               {selectedEvent.resource.images && selectedEvent.resource.images.length > 0 && (

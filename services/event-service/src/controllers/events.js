@@ -106,6 +106,19 @@ eventsRouter.delete('/:id', async (request, response) => {
   }
 })
 
+eventsRouter.delete('/', async (request, response) => {
+  const { calendarId } = request.query
+  if (!calendarId) {
+    return response.status(400).json({ error: 'calendarId is required' })
+  }
+  try {
+    await Event.deleteMany({ calendar: calendarId })
+    response.status(204).end()
+  } catch (error) {
+    response.status(500).json({ error: 'internal error', detail: error.message })
+  }
+})
+
 // Get comments that belong to a specific event
 // If COMMENT_SERVICE_URL is not configured, returns 502
 eventsRouter.get('/:id/comments', async (request, response) => {

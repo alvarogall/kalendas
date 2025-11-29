@@ -188,12 +188,13 @@ const App = () => {
   const handleRemoveCalendar = (id, title) => {
     setConfirmDialog({
       open: true,
-      title: `¿Eliminar calendario "${title}"?`,
+      title: `¿Eliminar calendario "${title}" y todos sus eventos asociados?`,
       onConfirm: () => {
         calendarService.remove(id)
           .then(() => {
             setCalendars(calendars.filter(c => c.id !== id))
             setSelectedCalendarIds(selectedCalendarIds.filter(cid => cid !== id))
+            setEvents(events.filter(e => e.calendar !== id))
             notify(`Deleted ${title}`)
             setConfirmDialog({ ...confirmDialog, open: false })
           })
@@ -586,6 +587,7 @@ const App = () => {
             onEditEvent={handleOpenEditEvent}
             openEventId={eventToOpenId}
             onOpenHandled={() => setEventToOpenId(null)}
+            calendars={calendars}
           />
 
           <Dialog open={isEventFormOpen} onClose={() => { setIsEventFormOpen(false); setEditingEvent(null); }}>
