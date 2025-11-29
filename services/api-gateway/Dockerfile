@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar dependencias de producción
-RUN npm ci --only=production
+# Use `npm install` here to avoid lockfile mismatch failures during Docker builds
+RUN npm install --only=production
 
 # Copiar código fuente
 COPY . .

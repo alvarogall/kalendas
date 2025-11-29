@@ -7,7 +7,10 @@ const logger = require('./utils/logger')
 const app = express()
 
 app.use(cors())
-// app.use(express.json()) - Removed to avoid conflict with http-proxy-middleware
+
+// Mount DropBox helper routes (server-side Dropbox uploads/delete)
+const dropboxRouter = require('./routes/dropbox')
+app.use('/api/dropbox', dropboxRouter)
 
 app.use((req, _res, next) => {
   logger.info('Gateway', req.method, req.path)

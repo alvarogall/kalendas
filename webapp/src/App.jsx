@@ -6,6 +6,7 @@ import theme from './theme'
 import Layout from './components/Layout'
 import Calendars from './components/Calendars'
 import CalendarForm from './components/CalendarForm'
+import ImportIcs from './components/ImportIcs'
 import CalendarView from './components/CalendarView'
 import EventForm from './components/EventForm'
 import Comments from './components/Comments'
@@ -298,7 +299,8 @@ const App = () => {
         description: newEventDesc,
         organizer: 'CurrentUser',
         calendar: newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : calendars[0]?.id),
-        images: imageUrl ? [imageUrl] : []
+        images: imageUrl ? [imageUrl] : [],
+        attachments: []
       }
 
       if (!eventObject.calendar) {
@@ -306,25 +308,41 @@ const App = () => {
         return
       }
 
-    eventService.create(eventObject)
-      .then(returnedEvent => {
-        setEvents(events.concat(returnedEvent))
-        setNewEventTitle('')
-        setNewEventStart('')
-        setNewEventEnd('')
-        setNewEventLocation('')
-        setNewEventDesc('')
-        setNewEventImage(null)
-        setNewEventCalendar('')
-        setIsEventFormOpen(false) // Close dialog
-        notify(`Added event ${returnedEvent.title}`)
-      })
-      .catch(error => notify(error.response?.data?.error || error.message, 'error'))
+      // If there's an attachment, upload it to Dropbox first and include URL
+      if (newAttachment) {
+        setUploadingAttachment(true)
+        setUploadingAttachmentName(newAttachment.name)
+        try {
+          const url = await dropboxService.uploadFile(newAttachment)
+          eventObject.attachments = [url]
+        } catch (err) {
+          notify(`Failed to upload attachment: ${err.message}`, 'error')
+          return
+        } finally {
+          setUploadingAttachment(false)
+          setUploadingAttachmentName('')
+        }
+      }
+
+      // Create event including any uploaded attachment URL
+      const returnedEvent = await eventService.create(eventObject)
+      setEvents(events.concat(returnedEvent))
+      setNewEventTitle('')
+      setNewEventStart('')
+      setNewEventEnd('')
+      setNewEventLocation('')
+      setNewEventDesc('')
+      setNewEventImage(null)
+      setNewEventCalendar('')
+      setNewAttachment(null)
+      setIsEventFormOpen(false) // Close dialog
+      notify(`Added event ${returnedEvent.title}`)
     } catch (err) {
       notify(err.response?.data?.error || err.message, 'error')
     }
 
   }
+
 
   const handleUpdateEvent = (e) => {
     e.preventDefault()
@@ -628,6 +646,7 @@ const App = () => {
         <Dialog open={isCalendarFormOpen} onClose={() => setIsCalendarFormOpen(false)}>
           <DialogTitle>Create Calendar</DialogTitle>
           <DialogContent>
+            <ImportIcs />
             <CalendarForm
               onSubmit={handleAddCalendar}
               titleValue={newCalendarTitle}
