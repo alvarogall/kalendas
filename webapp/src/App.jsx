@@ -6,6 +6,7 @@ import theme from './theme'
 import Layout from './components/Layout'
 import Calendars from './components/Calendars'
 import CalendarForm from './components/CalendarForm'
+import ImportIcs from './components/ImportIcs'
 import CalendarView from './components/CalendarView'
 import EventForm from './components/EventForm'
 import Comments from './components/Comments'
@@ -628,6 +629,7 @@ const App = () => {
         <Dialog open={isCalendarFormOpen} onClose={() => setIsCalendarFormOpen(false)}>
           <DialogTitle>Create Calendar</DialogTitle>
           <DialogContent>
+            <ImportIcs />
             <CalendarForm
               onSubmit={handleAddCalendar}
               titleValue={newCalendarTitle}
