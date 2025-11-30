@@ -25,7 +25,7 @@ function MapClickHandler ({ onMapClick }) {
 const DEFAULT_LAT = 40.4168
 const DEFAULT_LNG = -3.70379
 
-const CoordinateMap = ({ coordinates, onCoordinatesChange }) => {
+const CoordinateMap = ({ coordinates, onCoordinatesChange, onLocationChange }) => {
   const [lat, setLat] = useState(DEFAULT_LAT)
   const [lng, setLng] = useState(DEFAULT_LNG)
   const [manualInput, setManualInput] = useState('')
@@ -67,6 +67,21 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange }) => {
     if (typeof onCoordinatesChange === 'function') {
       onCoordinatesChange({ type: 'Point', coordinates: [cLng, cLat] })
     }
+    // Try reverse geocoding to populate the textual location field
+    if (typeof onLocationChange === 'function') {
+      try {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(cLat)}&lon=${encodeURIComponent(cLng)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.display_name) onLocationChange({ target: { value: data.display_name } })
+          })
+          .catch(() => {
+            // ignore reverse geocode failures
+          })
+      } catch (err) {
+        // ignore
+      }
+    }
   }
 
   const handleManualInput = () => {
@@ -91,6 +106,17 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange }) => {
     if (typeof onCoordinatesChange === 'function') {
       onCoordinatesChange({ type: 'Point', coordinates: [inputLng, inputLat] })
     }
+    // Reverse geocode manual coordinates to fill location
+    if (typeof onLocationChange === 'function') {
+      try {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(inputLat)}&lon=${encodeURIComponent(inputLng)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.display_name) onLocationChange({ target: { value: data.display_name } })
+          })
+          .catch(() => {})
+      } catch (err) {}
+    }
     setManualInput('')
   }
 
@@ -98,6 +124,7 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange }) => {
     setHasMarker(false)
     if (typeof onCoordinatesChange === 'function') onCoordinatesChange(null)
     setManualInput('')
+    if (typeof onLocationChange === 'function') onLocationChange({ target: { value: '' } })
   }
 
   return (

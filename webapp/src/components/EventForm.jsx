@@ -84,6 +84,7 @@ const EventForm = ({
       <CoordinateMap 
         coordinates={coordinates}
         onCoordinatesChange={onCoordinatesChange}
+        onLocationChange={onLocationChange}
       />
       
       <TextField
