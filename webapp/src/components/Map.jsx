@@ -22,11 +22,22 @@ function ChangeView({ center }) {
   return null;
 }
 
-const Map = ({ location }) => {
+const Map = ({ location, coordinates }) => {
   const [position, setPosition] = useState([40.416775, -3.703790]) // Default to Madrid
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    // If explicit coordinates (GeoJSON) are provided use them directly
+    if (coordinates && coordinates.coordinates && coordinates.coordinates.length === 2) {
+      // coordinates: [longitude, latitude] -> Map expects [lat, lon]
+      const lng = parseFloat(coordinates.coordinates[0])
+      const lat = parseFloat(coordinates.coordinates[1])
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        setPosition([lat, lng])
+        return
+      }
+    }
+
     if (location) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true)
@@ -43,7 +54,7 @@ const Map = ({ location }) => {
           setLoading(false)
         })
     }
-  }, [location])
+  }, [location, coordinates])
 
   if (loading) return <div>Loading map...</div>
 

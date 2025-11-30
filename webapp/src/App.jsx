@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { ThemeProvider } from '@mui/material/styles'
 import { Box, Button, Fab, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -52,6 +52,7 @@ const App = () => {
   const [newEventDesc, setNewEventDesc] = useState('')
   const [newEventImage, setNewEventImage] = useState(null)
   const [newEventCalendar, setNewEventCalendar] = useState('')
+  const [newEventCoordinates, setNewEventCoordinates] = useState(null)
   const [newAttachment, setNewAttachment] = useState(null)
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const [uploadingAttachmentName, setUploadingAttachmentName] = useState('')
@@ -262,6 +263,7 @@ const App = () => {
     setNewEventImage(event.images && event.images.length > 0 ? event.images[0] : null)
     setImageRemoved(false)
     setNewEventCalendar(event.calendar || '')
+    setNewEventCoordinates(event.coordinates || null)
     setIsEventFormOpen(true)
   }
 
@@ -278,6 +280,7 @@ const App = () => {
     setImageRemoved(false)
     const defaultCal = selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : (calendars[0]?.id || '')
     setNewEventCalendar(defaultCal)
+    setNewEventCoordinates(null)
     setIsEventFormOpen(true)
   }
 
@@ -303,6 +306,12 @@ const App = () => {
         attachments: []
       }
 
+      // Include coordinates if the user selected them in the map
+      if (newEventCoordinates) {
+        eventObject.coordinates = newEventCoordinates
+      }
+
+      console.log('Creating event payload', eventObject)
       if (!eventObject.calendar) {
         notify('Please create or select a calendar first', 'error')
         return
@@ -337,12 +346,26 @@ const App = () => {
       setNewAttachment(null)
       setIsEventFormOpen(false) // Close dialog
       notify(`Added event ${returnedEvent.title}`)
+    
+    eventService.create(eventObject)
+      .then(returnedEvent => {
+        setEvents(events.concat(returnedEvent))
+        setNewEventTitle('')
+        setNewEventStart('')
+        setNewEventEnd('')
+        setNewEventLocation('')
+        setNewEventDesc('')
+        setNewEventImage(null)
+        setNewEventCalendar('')
+        setIsEventFormOpen(false) // Close dialog
+        notify(`Added event ${returnedEvent.title}`)
+      })
+      .catch(error => notify(error.response?.data?.error || error.message, 'error'))
     } catch (err) {
       notify(err.response?.data?.error || err.message, 'error')
     }
 
   }
-
 
   const handleUpdateEvent = (e) => {
     e.preventDefault()
@@ -358,6 +381,9 @@ const App = () => {
       images: newEventImage ? [newEventImage] : (editingEvent.images || [])
     }
 
+    // Ensure coordinates are updated: prefer newly selected coords, otherwise keep existing
+    updated.coordinates = newEventCoordinates ?? editingEvent.coordinates
+
     // decide images according to new image / removal flag
     if (newEventImage) {
       updated.images = [newEventImage]
@@ -367,6 +393,7 @@ const App = () => {
       updated.images = editingEvent.images || []
     }
 
+    console.log('Updating event payload', updated)
     eventService.update(editingEvent.id, updated)
       .then(returnedEvent => {
         const handleUpdatedEvent = (updatedEvent) => {
@@ -608,7 +635,7 @@ const App = () => {
             calendars={calendars}
           />
 
-          <Dialog open={isEventFormOpen} onClose={() => { setIsEventFormOpen(false); setEditingEvent(null); }}>
+          <Dialog open={isEventFormOpen} onClose={() => { setIsEventFormOpen(false); setEditingEvent(null); setNewEventCoordinates(null); }}>
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Create Event'}</DialogTitle>
             <DialogContent>
               <EventForm
@@ -634,10 +661,12 @@ const App = () => {
                 calendars={calendars}
                 selectedCalendar={newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : '')}
                 onCalendarChange={({ target }) => setNewEventCalendar(target.value)}
+                coordinates={newEventCoordinates}
+                onCoordinatesChange={(coords) => setNewEventCoordinates(coords)}
               />
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => { setIsEventFormOpen(false); setEditingEvent(null); }}>Cancel</Button>
+              <Button onClick={() => { setIsEventFormOpen(false); setEditingEvent(null); setNewEventCoordinates(null); }}>Cancel</Button>
             </DialogActions>
           </Dialog>
         </Box>

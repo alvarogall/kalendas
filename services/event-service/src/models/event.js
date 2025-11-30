@@ -18,6 +18,26 @@ const eventSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Debe especificarse el lugar del evento']
   },
+  coordinates: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude] en orden GeoJSON estándar
+      // coordinates[0] = longitude (este-oeste)
+      // coordinates[1] = latitude (norte-sur)
+      validate: {
+        validator: function(v) {
+          return v && v.length === 2 && 
+                 v[0] >= -180 && v[0] <= 180 &&  // longitud válida
+                 v[1] >= -90 && v[1] <= 90       // latitud válida
+        },
+        message: 'Coordenadas inválidas. Formato: [longitud, latitud]'
+      }
+    }
+  },
   organizer: {
     type: String,
     required: [true, 'Debe especificarse el organizador del evento']

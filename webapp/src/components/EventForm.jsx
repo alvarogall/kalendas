@@ -1,5 +1,8 @@
 import React from 'react';
+
 import { TextField, Button, Box, InputLabel, Select, MenuItem, FormControl, Typography, CircularProgress } from '@mui/material';
+import CoordinateMap from './CoordinateMap';
+
 
 const EventForm = ({ 
   onSubmit, 
@@ -16,7 +19,9 @@ const EventForm = ({
   onRemoveAttachment,
   uploadingAttachment,
   uploadingAttachmentName,
-  calendars, selectedCalendar, onCalendarChange
+  calendars, selectedCalendar, onCalendarChange,
+  coordinates, onCoordinatesChange
+
 }) => (
   <form onSubmit={onSubmit}>
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -75,6 +80,12 @@ const EventForm = ({
         value={location}
         onChange={onLocationChange}
       />
+      
+      <CoordinateMap 
+        coordinates={coordinates}
+        onCoordinatesChange={onCoordinatesChange}
+      />
+      
       <TextField
         label="Description"
         variant="outlined"
