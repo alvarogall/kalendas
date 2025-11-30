@@ -53,6 +53,7 @@ const App = () => {
   const [newEventImage, setNewEventImage] = useState(null)
   const [newEventCalendar, setNewEventCalendar] = useState('')
   const [newEventCoordinates, setNewEventCoordinates] = useState(null)
+  const [newEventCoordinatesTouched, setNewEventCoordinatesTouched] = useState(false)
   const [newAttachment, setNewAttachment] = useState(null)
   const [uploadingAttachment, setUploadingAttachment] = useState(false)
   const [uploadingAttachmentName, setUploadingAttachmentName] = useState('')
@@ -264,6 +265,7 @@ const App = () => {
     setImageRemoved(false)
     setNewEventCalendar(event.calendar || '')
     setNewEventCoordinates(event.coordinates || null)
+    setNewEventCoordinatesTouched(false)
     setIsEventFormOpen(true)
   }
 
@@ -281,6 +283,7 @@ const App = () => {
     const defaultCal = selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : (calendars[0]?.id || '')
     setNewEventCalendar(defaultCal)
     setNewEventCoordinates(null)
+    setNewEventCoordinatesTouched(false)
     setIsEventFormOpen(true)
   }
 
@@ -381,8 +384,17 @@ const App = () => {
       images: newEventImage ? [newEventImage] : (editingEvent.images || [])
     }
 
-    // Ensure coordinates are updated: prefer newly selected coords, otherwise keep existing
-    updated.coordinates = newEventCoordinates ?? editingEvent.coordinates
+    // Ensure coordinates are updated:
+    // - if the user interacted with the coordinates control, apply that value (can be null to clear)
+    // - otherwise keep the existing coordinates on the event
+    if (newEventCoordinatesTouched) {
+      // If the user interacted with the coordinates control, include coordinates only when
+      // a valid value is present. If they cleared the control (null/undefined) we omit
+      // the field here (do not send `coordinates: null`) to avoid backend validation errors.
+      if (newEventCoordinates) {
+        updated.coordinates = newEventCoordinates
+      }
+    }
 
     // decide images according to new image / removal flag
     if (newEventImage) {
@@ -635,7 +647,7 @@ const App = () => {
             calendars={calendars}
           />
 
-          <Dialog open={isEventFormOpen} onClose={() => { setIsEventFormOpen(false); setEditingEvent(null); setNewEventCoordinates(null); }}>
+          <Dialog open={isEventFormOpen} onClose={() => { setIsEventFormOpen(false); setEditingEvent(null); setNewEventCoordinates(null); setNewEventCoordinatesTouched(false); }}>
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Create Event'}</DialogTitle>
             <DialogContent>
               <EventForm
@@ -662,11 +674,11 @@ const App = () => {
                 selectedCalendar={newEventCalendar || (selectedCalendarIds.length > 0 ? selectedCalendarIds[0] : '')}
                 onCalendarChange={({ target }) => setNewEventCalendar(target.value)}
                 coordinates={newEventCoordinates}
-                onCoordinatesChange={(coords) => setNewEventCoordinates(coords)}
+                onCoordinatesChange={(coords) => { setNewEventCoordinates(coords); setNewEventCoordinatesTouched(true); }}
               />
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => { setIsEventFormOpen(false); setEditingEvent(null); setNewEventCoordinates(null); }}>Cancel</Button>
+              <Button onClick={() => { setIsEventFormOpen(false); setEditingEvent(null); setNewEventCoordinates(null); setNewEventCoordinatesTouched(false); }}>Cancel</Button>
             </DialogActions>
           </Dialog>
         </Box>

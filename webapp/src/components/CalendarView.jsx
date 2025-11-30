@@ -247,8 +247,11 @@ const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveC
                 </Box>
               )}
 
-              {/* Show map only when explicit coordinates are available. Always show the location text above. */}
-              {selectedEvent.resource.coordinates && selectedEvent.resource.coordinates.coordinates && selectedEvent.resource.coordinates.coordinates.length === 2 && (
+              {/* Show map when either explicit coordinates are available or a location string is provided. */}
+              {(
+                (selectedEvent.resource.coordinates && selectedEvent.resource.coordinates.coordinates && selectedEvent.resource.coordinates.coordinates.length === 2)
+                || (selectedEvent.resource.location && String(selectedEvent.resource.location).trim() !== '')
+              ) && (
                 <Box sx={{ mt: 2, mb: 2 }}>
                   <Map location={selectedEvent.resource.location} coordinates={selectedEvent.resource.coordinates} />
                 </Box>
