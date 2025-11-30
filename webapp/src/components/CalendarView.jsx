@@ -57,7 +57,7 @@ const EventComponent = ({ event }) => {
   )
 }
 
-const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveComment, onFetchComments, onEditEvent, openEventId, onOpenHandled, calendars }) => {
+const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveComment, onFetchComments, onEditEvent, openEventId, onOpenHandled, calendars, onEventUpdated }) => {
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [newCommentText, setNewCommentText] = useState('')
   const [newCommentUser, setNewCommentUser] = useState('')
@@ -228,9 +228,11 @@ const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveC
                                 // Remove attachment from event and persist
                                 const updated = { ...selectedEvent.resource }
                                 updated.attachments = updated.attachments.filter(x => x !== att)
-                                await eventsService.update(updated.id || selectedEvent.id, updated)
-                                // Update UI
-                                setSelectedEvent({ ...selectedEvent, resource: updated })
+                                const returned = await eventsService.update(updated.id || selectedEvent.id, updated)
+                                // Update UI (dialog)
+                                setSelectedEvent({ ...selectedEvent, resource: returned })
+                                // Notify parent to update top-level events list if provided
+                                if (typeof onEventUpdated === 'function') onEventUpdated(returned)
                                 alert('Archivo eliminado correctamente')
                               } catch (err) {
                                 console.error(err)

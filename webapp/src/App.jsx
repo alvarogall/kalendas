@@ -541,6 +541,12 @@ const App = () => {
       .catch(error => notify(`Error fetching comments: ${error.message}`, 'error'))
   }
 
+  const handleEventUpdated = (updatedEvent) => {
+    setEvents(events.map(ev => ev.id === updatedEvent.id ? updatedEvent : ev))
+    // ensure dialog reflects latest data if it's open elsewhere
+    setEventToOpenId(updatedEvent.id)
+  }
+
   const handleAddComment = (commentObject) => {
     commentService.create(commentObject)
       .then(returnedComment => {
@@ -716,6 +722,7 @@ const App = () => {
             openEventId={eventToOpenId}
             onOpenHandled={() => setEventToOpenId(null)}
             calendars={calendars}
+            onEventUpdated={handleEventUpdated}
           />
 
           <Dialog open={isEventFormOpen} onClose={() => { setIsEventFormOpen(false); setEditingEvent(null); setNewEventCoordinates(null); setNewEventCoordinatesTouched(false); }}>

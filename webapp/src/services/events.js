@@ -1,5 +1,5 @@
 import axios from 'axios'
-const baseUrl = 'http://localhost:8080/api/events'
+const baseUrl = '/api/events'
 
 const getAll = (params) => {
   const request = axios.get(baseUrl, { params })
