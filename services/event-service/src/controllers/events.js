@@ -70,9 +70,15 @@ eventsRouter.get('/', async (request, response) => {
 })
 
 eventsRouter.post('/', async (request, response) => {
-  const event = new Event(request.body)
-  const result = await event.save()
-  response.status(201).json(result)
+  try {
+    const event = new Event(request.body)
+    const result = await event.save()
+    response.status(201).json(result)
+  } catch (error) {
+    console.error('Error creando evento:', error.message)
+    // Devolvemos 400 Bad Request con el mensaje de validación
+    response.status(400).json({ error: error.message })
+  }
 })
 
 eventsRouter.get('/:id', async (request, response) => {

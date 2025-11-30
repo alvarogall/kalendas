@@ -198,6 +198,13 @@ const App = () => {
       .catch(error => notify(error.response?.data?.error || error.message, 'error'))
   }
 
+  const handleImportSuccess = (calendarName) => {
+    setIsCalendarFormOpen(false) // Cierra el modal
+    loadCalendars() // Recarga la lista para ver el nuevo calendario
+    loadEvents() // Recarga los nuevos eventos importados
+    notify(`Calendario "${calendarName}" importado correctamente`) // Muestra el mensaje verde
+  }
+
   const handleRemoveCalendar = (id, title) => {
     setConfirmDialog({
       open: true,
@@ -697,7 +704,7 @@ const App = () => {
         <Dialog open={isCalendarFormOpen} onClose={() => setIsCalendarFormOpen(false)}>
           <DialogTitle>Create Calendar</DialogTitle>
           <DialogContent>
-            <ImportIcs />
+            <ImportIcs onImportSuccess={handleImportSuccess} />
             <CalendarForm
               onSubmit={handleAddCalendar}
               titleValue={newCalendarTitle}
