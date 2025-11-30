@@ -142,39 +142,49 @@ const App = () => {
       organizerEmail: 'user@example.com',
       startDate: newCalendarStart || new Date().toISOString(),
       endDate: newCalendarEnd || null,
-      keywords: newCalendarKeywords.split(',').map(k => k.trim()).filter(k => k)
+      keywords: newCalendarKeywords.split(',').map(k => k.trim()).filter(k => k),
+      parentId: newCalendarParent || null
     }
 
     calendarService.create(calendarObject)
       .then(returnedCalendar => {
         // If a parent calendar was selected, we need to link them
+        // if (newCalendarParent) {
+        //     const parent = calendars.find(c => c.id === newCalendarParent);
+        //     if (parent) {
+        //         const updatedParent = {
+        //             ...parent,
+        //             subCalendars: [...(parent.subCalendars || []), returnedCalendar.id]
+        //         };
+        //         // We need to update the parent. 
+        //         // Note: The backend update usually expects the full object or handles partials.
+        //         // Assuming the backend handles the update correctly.
+        //         calendarService.update(parent.id, updatedParent)
+        //             .then(updatedParentRes => {
+        //                 // Update state with both new calendar and updated parent
+        //                 setCalendars(calendars.map(c => c.id === parent.id ? updatedParentRes : c).concat(returnedCalendar));
+        //                 notify(`Added subcalendar ${returnedCalendar.title} to ${parent.title}`);
+        //             })
+        //             .catch(err => {
+        //                 notify(`Created calendar but failed to link to parent: ${err.message}`, 'warning');
+        //                 setCalendars(calendars.concat(returnedCalendar));
+        //             });
+        //     } else {
+        //         setCalendars(calendars.concat(returnedCalendar));
+        //         notify(`Added calendar ${returnedCalendar.title}`);
+        //     }
+        // } else {
+        //     setCalendars(calendars.concat(returnedCalendar));
+        //     notify(`Added calendar ${returnedCalendar.title}`);
+        // }
+
+        loadCalendars(); // Reload calendars to reflect hierarchy
+
         if (newCalendarParent) {
-            const parent = calendars.find(c => c.id === newCalendarParent);
-            if (parent) {
-                const updatedParent = {
-                    ...parent,
-                    subCalendars: [...(parent.subCalendars || []), returnedCalendar.id]
-                };
-                // We need to update the parent. 
-                // Note: The backend update usually expects the full object or handles partials.
-                // Assuming the backend handles the update correctly.
-                calendarService.update(parent.id, updatedParent)
-                    .then(updatedParentRes => {
-                        // Update state with both new calendar and updated parent
-                        setCalendars(calendars.map(c => c.id === parent.id ? updatedParentRes : c).concat(returnedCalendar));
-                        notify(`Added subcalendar ${returnedCalendar.title} to ${parent.title}`);
-                    })
-                    .catch(err => {
-                        notify(`Created calendar but failed to link to parent: ${err.message}`, 'warning');
-                        setCalendars(calendars.concat(returnedCalendar));
-                    });
-            } else {
-                setCalendars(calendars.concat(returnedCalendar));
-                notify(`Added calendar ${returnedCalendar.title}`);
-            }
+          const parentName = calendars.find(c => c.id === newCalendarParent)?.title || 'Calendario padre';
+          notify(`Added subcalendar ${returnedCalendar.title} to ${parentName}`);
         } else {
-            setCalendars(calendars.concat(returnedCalendar));
-            notify(`Added calendar ${returnedCalendar.title}`);
+          notify(`Added calendar ${returnedCalendar.title}`);
         }
 
         setNewCalendarTitle('')

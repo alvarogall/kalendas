@@ -66,14 +66,31 @@ calendarsRouter.get('/', async (request, response) => {
     filter._id = { $in: Array.from(restrictIds) }
   }
 
-  const calendars = await Calendar.find(filter).sort({ startDate: -1 })
+  filter.parentId = null
+
+  const calendars = await Calendar.find(filter)
+    .populate('subCalendars')
+    .sort({ startDate: -1 })
+
   response.json(calendars)
 })
 
 calendarsRouter.post('/', async (request, response) => {
-  const calendar = new Calendar(request.body)
-  const result = await calendar.save()
-  response.status(201).json(result)
+  const { parentId, ...body } = request.body;
+
+  const calendar = new Calendar({
+    ...body,
+    parentId: parentId || null
+  })
+  const savedCalendar = await calendar.save()
+
+  if (parentId) {
+    await Calendar.findByIdAndUpdate(parentId, {
+      $addToSet: { subCalendars: savedCalendar._id }
+    })
+  }
+
+  response.status(201).json(savedCalendar)
 })
 
 calendarsRouter.get('/:id', async (request, response) => {

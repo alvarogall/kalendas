@@ -34,6 +34,11 @@ const calendarSchema = new mongoose.Schema({
     enum: ['email', 'in-app'],
     default: 'email'
   },
+  parentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Calendar',
+    default: null
+  },
   subCalendars: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Calendar'
