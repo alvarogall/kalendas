@@ -75,6 +75,15 @@ export default function ImportIcs({ onImportSuccess }) {
     const minStart = starts.length > 0 ? new Date(Math.min(...starts.map(d => d.getTime()))) : new Date()
     const maxEnd = ends.length > 0 ? new Date(Math.max(...ends.map(d => d.getTime()))) : null
 
+    // Leer preferencia de notificaciones desde localStorage (por defecto 'email')
+    let notifPref = 'email'
+    try {
+      const p = localStorage.getItem('notification_preference')
+      if (p) notifPref = p
+    } catch (err) {
+      // ignore localStorage errors
+    }
+
     const calendarPayload = {
       title: calendarName,
       description: 'Importado desde archivo .ics',
@@ -82,7 +91,8 @@ export default function ImportIcs({ onImportSuccess }) {
       organizerEmail: 'import@local',
       startDate: minStart.toISOString(),
       endDate: maxEnd ? maxEnd.toISOString() : null,
-      keywords: []
+      keywords: [],
+      notificationChannel: notifPref
     }
 
     let calendarId = null

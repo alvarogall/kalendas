@@ -14,6 +14,8 @@ import CommentForm from './components/CommentForm'
 import NotificationList from './components/NotificationList'
 import Filter from './components/Filter'
 import AdvancedSearch from './components/AdvancedSearch'
+import SettingsDialog from './components/SettingsDialog'
+import SettingsIcon from '@mui/icons-material/Settings'
 import calendarService from './services/calendars'
 import eventService from './services/events'
 import dropboxService from './services/dropbox'
@@ -65,6 +67,7 @@ const App = () => {
   const [isCalendarFormOpen, setIsCalendarFormOpen] = useState(false)
   const [isEventFormOpen, setIsEventFormOpen] = useState(false)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [desktopOpen, setDesktopOpen] = useState(true)
 
@@ -135,6 +138,10 @@ const App = () => {
 
   const handleAddCalendar = (event) => {
     event.preventDefault()
+    const channel = (() => {
+      try { return localStorage.getItem('notification_preference') || 'email' } catch (e) { return 'email' }
+    })()
+
     const calendarObject = {
       title: newCalendarTitle,
       description: newCalendarDesc,
@@ -143,7 +150,8 @@ const App = () => {
       startDate: newCalendarStart || new Date().toISOString(),
       endDate: newCalendarEnd || null,
       keywords: newCalendarKeywords.split(',').map(k => k.trim()).filter(k => k),
-      parentId: newCalendarParent || null
+      parentId: newCalendarParent || null,
+      notificationChannel: channel
     }
 
     calendarService.create(calendarObject)
@@ -203,6 +211,37 @@ const App = () => {
     loadCalendars() // Recarga la lista para ver el nuevo calendario
     loadEvents() // Recarga los nuevos eventos importados
     notify(`Calendario "${calendarName}" importado correctamente`) // Muestra el mensaje verde
+  }
+
+  const handleApplySettingsToAll = async () => {
+    const preference = localStorage.getItem('notification_preference') || 'email'
+    
+    // Filtramos para no intentar actualizar calendarios que no sean nuestros
+    // (Aunque en esta práctica todos son 'CurrentUser', es buena costumbre)
+    const myCalendars = calendars.filter(c => c.organizer === 'CurrentUser' || c.organizer === 'Imported')
+
+    if (myCalendars.length === 0) {
+      notify('No tienes calendarios para actualizar', 'info')
+      return
+    }
+
+    notify(`Actualizando ${myCalendars.length} calendarios a "${preference}"...`, 'info')
+
+    try {
+      // Creamos una promesa de actualización por cada calendario
+      const updatePromises = myCalendars.map(cal => 
+        calendarService.update(cal.id, { ...cal, notificationChannel: preference })
+      )
+
+      // Ejecutamos todas a la vez (Parallel)
+      await Promise.all(updatePromises)
+      
+      notify('¡Todos los calendarios actualizados correctamente!')
+      loadCalendars() // Recargamos para ver cambios si fuera necesario
+    } catch (error) {
+      console.error(error)
+      notify('Hubo un error al actualizar algunos calendarios', 'error')
+    }
   }
 
   const handleRemoveCalendar = (id, title) => {
@@ -569,6 +608,15 @@ const App = () => {
         >
           Create Calendar
         </Button>
+        <Button 
+          variant="outlined" 
+          startIcon={<SettingsIcon />} 
+          fullWidth 
+          onClick={() => setIsSettingsOpen(true)}
+          sx={{ textTransform: 'none' }}
+        >
+          Configuración
+        </Button>
         <AdvancedSearch onSearch={handleAdvancedSearch} />
       </Box>
       <Calendars
@@ -628,6 +676,12 @@ const App = () => {
             <Button onClick={() => setIsNotificationOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
+
+        <SettingsDialog 
+            open={isSettingsOpen} 
+            onClose={() => setIsSettingsOpen(false)} 
+            onApplyToAll={handleApplySettingsToAll}
+        />
 
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: 2 }}>
