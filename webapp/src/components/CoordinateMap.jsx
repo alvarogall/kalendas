@@ -1,100 +1,104 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { Box, Typography, TextField, Button } from '@mui/material';
+import React, { useEffect, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import { Box, Typography, TextField, Button } from '@mui/material'
 
-// Fix leaflet default icon issue
-delete L.Icon.Default.prototype._getIconUrl;
+// Fix leaflet default icon URLs when using CDN or bundlers
+delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
+})
 
-// Componente interno para detectar clics en el mapa
-function MapClickHandler({ onMapClick }) {
+function MapClickHandler ({ onMapClick }) {
   useMapEvents({
-    click(e) {
-      const { lat, lng } = e.latlng;
-      onMapClick([lng, lat]); // GeoJSON: [longitud, latitud]
-    },
-  });
-  return null;
+    click (e) {
+      const { lat, lng } = e.latlng
+      if (typeof onMapClick === 'function') onMapClick([lng, lat]) // GeoJSON order
+    }
+  })
+  return null
 }
 
+const DEFAULT_LAT = 40.4168
+const DEFAULT_LNG = -3.70379
+
 const CoordinateMap = ({ coordinates, onCoordinatesChange }) => {
-  const [lat, setLat] = useState(40.4168); // Madrid por defecto
-  const [lng, setLng] = useState(-3.1836);
-  const [manualInput, setManualInput] = useState('');
+  const [lat, setLat] = useState(DEFAULT_LAT)
+  const [lng, setLng] = useState(DEFAULT_LNG)
+  const [manualInput, setManualInput] = useState('')
   const [mapInstance, setMapInstance] = useState(null)
   const [hasMarker, setHasMarker] = useState(false)
 
-  // Si ya hay coordenadas, inicializar el mapa en esa ubicación
+  // Initialize from props
   useEffect(() => {
     if (coordinates && coordinates.coordinates && coordinates.coordinates.length === 2) {
-      setLng(coordinates.coordinates[0]);
-      setLat(coordinates.coordinates[1]);
+      const [cLng, cLat] = coordinates.coordinates
+      setLng(cLng)
+      setLat(cLat)
       setHasMarker(true)
-      if (mapInstance) {
+      if (mapInstance && typeof mapInstance.setView === 'function') {
         try {
-          mapInstance.setView([coordinates.coordinates[1], coordinates.coordinates[0]])
-          setTimeout(() => mapInstance.invalidateSize(), 100)
-        } catch (err) { /* ignore */ }
+          mapInstance.setView([cLat, cLng])
+          // invalidateSize to ensure proper rendering when inside dialogs
+          setTimeout(() => mapInstance.invalidateSize(), 150)
+        } catch (err) {
+          // ignore
+        }
       }
     }
-  }, [coordinates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coordinates])
+
+  // Ensure map resizes when instance becomes available
+  useEffect(() => {
+    if (mapInstance && typeof mapInstance.invalidateSize === 'function') {
+      setTimeout(() => mapInstance.invalidateSize(), 150)
+    }
+  }, [mapInstance])
 
   const handleMapClick = (newCoordinates) => {
-    setLng(newCoordinates[0]);
-    setLat(newCoordinates[1]);
+    const [cLng, cLat] = newCoordinates
+    setLng(cLng)
+    setLat(cLat)
     setHasMarker(true)
     if (typeof onCoordinatesChange === 'function') {
-      onCoordinatesChange({
-        type: 'Point',
-        coordinates: newCoordinates, // [longitud, latitud]
-      });
+      onCoordinatesChange({ type: 'Point', coordinates: [cLng, cLat] })
     }
-  };
+  }
 
   const handleManualInput = () => {
-    // Esperar formato: "latitud,longitud" o "lat,lng"
-    const parts = manualInput.trim().split(',');
-    if (parts.length === 2) {
-      const inputLat = parseFloat(parts[0].trim());
-      const inputLng = parseFloat(parts[1].trim());
-
-      if (
-        !isNaN(inputLat) &&
-        !isNaN(inputLng) &&
-        inputLat >= -90 &&
-        inputLat <= 90 &&
-        inputLng >= -180 &&
-        inputLng <= 180
-      ) {
-        setLat(inputLat);
-        setLng(inputLng);
-        setHasMarker(true)
-        if (typeof onCoordinatesChange === 'function') {
-          onCoordinatesChange({
-            type: 'Point',
-            coordinates: [inputLng, inputLat],
-          });
-        }
-        setManualInput('');
-      } else {
-        alert('Coordenadas inválidas. Rango: latitud [-90, 90], longitud [-180, 180]');
-      }
-    } else {
-      alert('Formato incorrecto. Usa: latitud,longitud (ej: 40.4168,-3.1836)');
+    const parts = manualInput.trim().split(',')
+    if (parts.length !== 2) {
+      alert('Formato incorrecto. Usa: latitud,longitud (ej: 40.4168,-3.1836)')
+      return
     }
-  };
+    const inputLat = parseFloat(parts[0].trim())
+    const inputLng = parseFloat(parts[1].trim())
+    if (
+      isNaN(inputLat) || isNaN(inputLng) ||
+      inputLat < -90 || inputLat > 90 ||
+      inputLng < -180 || inputLng > 180
+    ) {
+      alert('Coordenadas inválidas. Rango: latitud [-90, 90], longitud [-180, 180]')
+      return
+    }
+    setLat(inputLat)
+    setLng(inputLng)
+    setHasMarker(true)
+    if (typeof onCoordinatesChange === 'function') {
+      onCoordinatesChange({ type: 'Point', coordinates: [inputLng, inputLat] })
+    }
+    setManualInput('')
+  }
 
   const handleClear = () => {
-    if (typeof onCoordinatesChange === 'function') onCoordinatesChange(null);
-    setManualInput('');
     setHasMarker(false)
-  };
+    if (typeof onCoordinatesChange === 'function') onCoordinatesChange(null)
+    setManualInput('')
+  }
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -103,38 +107,23 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange }) => {
         Haz clic en el mapa para seleccionar una ubicación, o ingresa las coordenadas manualmente.
       </Typography>
 
-      {/* Mapa interactivo */}
-      <Box
-        sx={{
-          mb: 2,
-          border: '1px solid #ccc',
-          borderRadius: 1,
-          overflow: 'hidden',
-          height: 300,
-        }}
-      >
+      <Box sx={{ mb: 2, border: '1px solid #ccc', borderRadius: 1, overflow: 'hidden', height: 300 }}>
         <MapContainer
           center={[lat, lng]}
           zoom={13}
           style={{ width: '100%', height: '100%' }}
           whenCreated={(map) => { setMapInstance(map); setTimeout(() => map.invalidateSize(), 150) }}
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; OpenStreetMap contributors'
-          />
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
           {hasMarker && (
             <Marker position={[lat, lng]}>
-              <Popup>
-                Lat: {lat.toFixed(4)}, Lng: {lng.toFixed(4)}
-              </Popup>
+              <Popup>Lat: {lat.toFixed(4)}, Lng: {lng.toFixed(4)}</Popup>
             </Marker>
           )}
           <MapClickHandler onMapClick={handleMapClick} />
         </MapContainer>
       </Box>
 
-      {/* Entrada manual de coordenadas */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
         <TextField
           label="Coordenadas (lat,lng)"
@@ -146,45 +135,19 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange }) => {
           onChange={(e) => setManualInput(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleManualInput()}
         />
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={handleManualInput}
-          sx={{ minWidth: 80 }}
-        >
+        <Button variant="outlined" size="small" onClick={handleManualInput} sx={{ minWidth: 80 }}>
           Ingresar
         </Button>
       </Box>
 
-      {/* Mostrar coordenadas actuales */}
       {hasMarker && (
-        <Box
-          sx={{
-            p: 1,
-            bgcolor: 'background.paper',
-            border: '1px solid #ddd',
-            borderRadius: 1,
-            mb: 2,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <Typography variant="body2">
-            📍 Lat: {lat.toFixed(4)}, Lng: {lng.toFixed(4)}
-          </Typography>
-          <Button
-            variant="text"
-            size="small"
-            color="error"
-            onClick={handleClear}
-          >
-            Limpiar
-          </Button>
+        <Box sx={{ p: 1, bgcolor: 'background.paper', border: '1px solid #ddd', borderRadius: 1, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2">📍 Lat: {lat.toFixed(4)}, Lng: {lng.toFixed(4)}</Typography>
+          <Button variant="text" size="small" color="error" onClick={handleClear}>Limpiar</Button>
         </Box>
       )}
     </Box>
-  );
-};
+  )
+}
 
-export default CoordinateMap;
+export default CoordinateMap
