@@ -115,9 +115,18 @@ export default function ImportIcs({ onImportSuccess }) {
     
     // Preparar payloads
     const payloads = events.map(ev => {
-      const start = ev.startDate ? ev.startDate.toJSDate() : null
-      const end = ev.endDate ? ev.endDate.toJSDate() : null
+      let start = ev.startDate ? ev.startDate.toJSDate() : null
+      let end = ev.endDate ? ev.endDate.toJSDate() : null
       
+      // Si no hay fecha de inicio, usar ahora
+      if (!start) {
+        start = new Date()
+      }
+      // Si no hay fecha de fin, usar inicio + 1 hora
+      if (!end) {
+        end = new Date(start.getTime() + 60 * 60 * 1000)
+      }
+
       // Aseguramos un organizador por defecto válido
       const organizerName = (cjson && (cjson.organizer || cjson.organizerEmail)) 
         ? (cjson.organizer || cjson.organizerEmail) 
@@ -126,10 +135,10 @@ export default function ImportIcs({ onImportSuccess }) {
       return {
         title: ev.summary || 'Sin título',
         description: ev.description || '',
-        startTime: start ? start.toISOString() : null,
-        endTime: end ? end.toISOString() : null,
-        startDate: start ? start.toISOString() : null,
-        endDate: end ? end.toISOString() : null,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
         
         organizer: organizerName,
         location: ev.location || 'Ubicación importada', 
@@ -146,6 +155,7 @@ export default function ImportIcs({ onImportSuccess }) {
     setProgress({ sent: 0, total: payloads.length, errors: 0 })
     let sent = 0
     let errors = 0
+    let lastError = ''
 
     // Usamos ruta relativa /api/events suponiendo que Vite/Docker proxy redirige correctamente
     // Si falla, prueba a poner la URL completa de nuevo, pero relativo suele ser más seguro en Docker.
@@ -162,12 +172,14 @@ export default function ImportIcs({ onImportSuccess }) {
         if (!res.ok) {
           errors++
           const errorText = await res.text()
+          lastError = errorText
           console.error(`Error guardando evento "${payload.title}":`, errorText)
         } else {
           sent++
         }
       } catch (err) {
         errors++
+        lastError = err.message
         console.error(`Error de red con evento "${payload.title}":`, err)
       }
       setProgress({ sent, total: payloads.length, errors })
@@ -175,7 +187,14 @@ export default function ImportIcs({ onImportSuccess }) {
 
     setStatus('done')
 if (errors > 0) {
-        setMessage(`Import terminado con advertencias: ${sent} guardados, ${errors} fallidos.`)
+        // Intentar parsear el error si es JSON
+        let friendlyError = lastError
+        try {
+            const jsonErr = JSON.parse(lastError)
+            if (jsonErr.error) friendlyError = jsonErr.error
+        } catch (e) { /* ignore */ }
+        
+        setMessage(`Import terminado con advertencias: ${sent} guardados, ${errors} fallidos. Último error: ${friendlyError}`)
     } else {
         // SI TODO SALIÓ BIEN, LLAMAMOS AL PADRE
         if (onImportSuccess) {

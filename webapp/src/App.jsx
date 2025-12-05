@@ -1,9 +1,11 @@
 ﻿import { useState, useEffect } from 'react'
 import { ThemeProvider } from '@mui/material/styles'
-import { Box, Button, Fab, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert, Typography } from '@mui/material'
+import { Box, Button, Fab, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert, Typography, Avatar, Menu, MenuItem, Tooltip, IconButton } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import FileUploadIcon from '@mui/icons-material/FileUpload'
 import theme from './theme'
 import Layout from './components/Layout'
+import LoginScreen from './components/LoginScreen'
 import Calendars from './components/Calendars'
 import CalendarForm from './components/CalendarForm'
 import ImportIcs from './components/ImportIcs'
@@ -22,8 +24,14 @@ import dropboxService from './services/dropbox'
 import commentService from './services/comments'
 import notificationService from './services/notifications'
 import uploadService from './services/upload'
+import { GoogleLogin, googleLogout } from '@react-oauth/google'
+import { jwtDecode } from 'jwt-decode'
 
 const App = () => {
+  const [user, setUser] = useState(null)
+  const [anchorElUser, setAnchorElUser] = useState(null)
+  const [isImportOpen, setIsImportOpen] = useState(false)
+
   const [calendars, setCalendars] = useState([])
   const [events, setEvents] = useState([])
   const [comments, setComments] = useState([])
@@ -70,6 +78,25 @@ const App = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [desktopOpen, setDesktopOpen] = useState(true)
+
+  // Auth Handlers
+  const handleLoginSuccess = (credentialResponse) => {
+    try {
+      const decoded = jwtDecode(credentialResponse.credential)
+      const isAdmin = decoded.email === 'pruebaparaingweb@gmail.com'
+      setUser({ ...decoded, isAdmin })
+      notify(`Bienvenido, ${decoded.name}`)
+    } catch (err) {
+      notify('Error decoding login token', 'error')
+    }
+  }
+
+  const handleLogout = () => {
+    googleLogout()
+    setUser(null)
+    setAnchorElUser(null)
+    notify('Sesión cerrada')
+  }
 
   // Helpers
   const notify = (message, type = 'success') => {
@@ -207,10 +234,10 @@ const App = () => {
   }
 
   const handleImportSuccess = (calendarName) => {
-    setIsCalendarFormOpen(false) // Cierra el modal
-    loadCalendars() // Recarga la lista para ver el nuevo calendario
-    loadEvents() // Recarga los nuevos eventos importados
-    notify(`Calendario "${calendarName}" importado correctamente`) // Muestra el mensaje verde
+    setIsImportOpen(false)
+    loadCalendars()
+    loadEvents()
+    notify(`Calendario "${calendarName}" importado correctamente`)
   }
 
   const handleApplySettingsToAll = async () => {
@@ -592,6 +619,32 @@ const App = () => {
     setDesktopOpen(!desktopOpen)
   }
 
+  const authControl = user ? (
+    <Box sx={{ flexGrow: 0, ml: 2 }}>
+      <Tooltip title="Open settings">
+        <IconButton onClick={(e) => setAnchorElUser(e.currentTarget)} sx={{ p: 0 }}>
+          <Avatar alt={user.name} src={user.picture} />
+        </IconButton>
+      </Tooltip>
+      <Menu
+        sx={{ mt: '45px' }}
+        id="menu-appbar"
+        anchorEl={anchorElUser}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        keepMounted
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        open={Boolean(anchorElUser)}
+        onClose={() => setAnchorElUser(null)}
+      >
+        <MenuItem disabled><Typography textAlign="center">{user.name}</Typography></MenuItem>
+        {user.isAdmin && <MenuItem disabled><Typography textAlign="center" color="primary">ADMIN</Typography></MenuItem>}
+        <MenuItem onClick={handleLogout}>
+          <Typography textAlign="center">Logout</Typography>
+        </MenuItem>
+      </Menu>
+    </Box>
+  ) : null
+
   const sidebarContent = (
     <Box>
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -613,6 +666,15 @@ const App = () => {
           }}
         >
           Create Calendar
+        </Button>
+        <Button 
+          variant="outlined" 
+          startIcon={<FileUploadIcon />} 
+          fullWidth 
+          onClick={() => setIsImportOpen(true)}
+          sx={{ textTransform: 'none' }}
+        >
+          Import Calendar
         </Button>
         <Button 
           variant="outlined" 
@@ -642,15 +704,32 @@ const App = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Layout
-        sidebarContent={sidebarContent}
-        notificationCount={notifications.filter(n => !n.read).length}
-        onNotificationClick={() => setIsNotificationOpen(true)}
-        onMenuClick={handleDrawerToggle}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-        desktopOpen={desktopOpen}
-      >
+      {!user ? (
+        <LoginScreen 
+          onSuccess={handleLoginSuccess} 
+          onError={() => notify('Login Failed', 'error')} 
+        />
+      ) : (
+        <Layout
+          sidebarContent={sidebarContent}
+          notificationCount={notifications.filter(n => !n.read).length}
+          onNotificationClick={() => setIsNotificationOpen(true)}
+          onMenuClick={handleDrawerToggle}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+          desktopOpen={desktopOpen}
+          authControl={authControl}
+        >
+        <Dialog open={isImportOpen} onClose={() => setIsImportOpen(false)}>
+          <DialogTitle>Import Calendar</DialogTitle>
+          <DialogContent>
+            <ImportIcs onImportSuccess={handleImportSuccess} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setIsImportOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
         <Dialog
           open={confirmDialog.open}
           onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
@@ -823,7 +902,8 @@ const App = () => {
           </DialogActions>
         </Dialog>
 
-      </Layout>
+        </Layout>
+      )}
     </ThemeProvider>
   )
 }

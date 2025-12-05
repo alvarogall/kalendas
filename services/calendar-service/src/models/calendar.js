@@ -16,7 +16,7 @@ const calendarSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    maxlength: 2000
+    maxlength: 5000
   },
   startDate: {
     type: Date,

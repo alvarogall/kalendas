@@ -49,7 +49,7 @@ const eventSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    maxlength: 1000
+    maxlength: 5000
   },
   images: {
     type: [String], // URLs a Cloudinary, Drive, etc.

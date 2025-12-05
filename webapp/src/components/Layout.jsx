@@ -14,7 +14,8 @@ const Layout = ({
   onMenuClick,
   mobileOpen,
   onMobileClose,
-  desktopOpen = true // Default to true if not provided
+  desktopOpen = true,
+  authControl
 }) => {
   
   const handleLogoClick = () => {
@@ -45,6 +46,7 @@ const Layout = ({
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />
+          {authControl}
           <IconButton color="inherit" onClick={onNotificationClick}>
             <Badge badgeContent={notificationCount} color="error">
               <NotificationsIcon />
