@@ -54,7 +54,3 @@ El proyecto sigue una arquitectura de microservicios contenerizada con Docker:
 
 4.  **Acceder a la aplicación:**
     Abre tu navegador en `http://localhost:5173` (o el puerto configurado para el frontend).
-
-## 👥 Autores
-
-Proyecto desarrollado para la asignatura de Ingeniería Web.
