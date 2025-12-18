@@ -1,5 +1,7 @@
 import axios from 'axios'
-const baseUrl = 'http://localhost:8080/api/comments'
+import { apiBaseUrl } from './config'
+
+const baseUrl = `${apiBaseUrl}/comments`
 
 const getAll = (params) => {
   const request = axios.get(baseUrl, { params })

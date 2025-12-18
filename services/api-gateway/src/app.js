@@ -86,6 +86,10 @@ const makeProxy = (target) => createProxyMiddleware({
   }
 })
 
+const dropboxRouter = require('./routes/dropbox')
+
+app.use('/api/dropbox', dropboxRouter)
+
 app.use('/api/calendars', makeProxy(config.CALENDAR_SERVICE_URL))
 app.use('/api/events', makeProxy(config.EVENT_SERVICE_URL))
 app.use('/api/comments', makeProxy(config.COMMENT_SERVICE_URL))

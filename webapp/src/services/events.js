@@ -1,5 +1,7 @@
 import axios from 'axios'
-const baseUrl = '/api/events'
+import { apiBaseUrl } from './config'
+
+const baseUrl = `${apiBaseUrl}/events`
 
 const getAll = (params) => {
   const request = axios.get(baseUrl, { params })

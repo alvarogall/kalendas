@@ -1,5 +1,7 @@
 import axios from 'axios'
-const baseUrl = 'http://localhost:8080/api/calendars'
+import { apiBaseUrl } from './config'
+
+const baseUrl = `${apiBaseUrl}/calendars`
 
 const getAll = (params) => {
   const request = axios.get(baseUrl, { params })

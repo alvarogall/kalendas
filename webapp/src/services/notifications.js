@@ -1,5 +1,7 @@
 import axios from 'axios'
-const baseUrl = 'http://localhost:8080/api/notifications'
+import { apiBaseUrl } from './config'
+
+const baseUrl = `${apiBaseUrl}/notifications`
 
 const getAll = (params) => {
   const request = axios.get(baseUrl, { params })
