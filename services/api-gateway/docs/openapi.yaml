@@ -12,10 +12,16 @@ info:
   contact:
     name: Equipo Kalendas
 servers:
+  - url: https://kalendas-gateway-8i8x.onrender.com
+    description: Producción (Render)
   - url: http://localhost:8080
     description: Desarrollo local (API Gateway)
 
 tags:
+  - name: Auth
+    description: Autenticación y Tokens
+  - name: Dropbox
+    description: Subida de archivos a Dropbox
   - name: Calendars
     description: Gestión y consulta de calendarios
   - name: Events
@@ -28,6 +34,83 @@ tags:
     description: Estado del gateway
 
 paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión con Google ID Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Google ID Token
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email: { type: string }
+                  name: { type: string }
+                  isAdmin: { type: boolean }
+                  message: { type: string }
+        '401':
+          description: Token inválido
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      responses:
+        '200':
+          description: Logout exitoso
+
+  /token:
+    get:
+      tags: [Auth]
+      summary: Obtener token de sesión actual
+      description: Devuelve el token JWT almacenado en la cookie httpOnly. Útil para pruebas externas.
+      responses:
+        '200':
+          description: Token recuperado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+        '401':
+          description: No autenticado
+
+  /dropbox/upload:
+    post:
+      tags: [Dropbox]
+      summary: Subir archivo a Dropbox
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Archivo subido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string }
+
   /health:
     get:
       tags: [Health]
