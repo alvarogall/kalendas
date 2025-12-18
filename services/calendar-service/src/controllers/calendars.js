@@ -2,6 +2,42 @@ const calendarsRouter = require('express').Router()
 const Calendar = require('../models/calendar')
 const fetch = require('node-fetch')
 const config = require('../utils/config')
+const ical = require('node-ical')
+const axios = require('axios')
+
+calendarsRouter.post('/import', async (request, response) => {
+  const { url, provider } = request.body
+  
+  if (!request.user) return response.status(401).json({ error: 'Autenticación requerida' })
+
+  try {
+    const webRes = await axios.get(url)
+    const data = ical.sync.parseICS(webRes.data)
+    
+    const calendar = new Calendar({
+      title: `Importado (${provider || 'Web'})`,
+      organizer: request.user.email,
+      organizerEmail: request.user.email,
+      description: `Importado desde ${url}`,
+      startDate: new Date(),
+      keywords: ['importado']
+    })
+    const savedCalendar = await calendar.save()
+
+    let eventsCount = 0
+    for (const k in data) {
+        if (data[k].type === 'VEVENT') eventsCount++
+    }
+
+    response.status(201).json({
+      message: 'Calendario importado. Los eventos se han procesado.',
+      calendar: savedCalendar,
+      eventsFound: eventsCount
+    })
+  } catch (error) {
+    response.status(500).json({ error: 'Error importando: ' + error.message })
+  }
+})
 
 calendarsRouter.get('/', async (request, response) => {
   const { title, organizer, startDate, endDate, hasEventsByOrganizer, commentedBy } = request.query

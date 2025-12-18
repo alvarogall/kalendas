@@ -26,6 +26,7 @@ import notificationService from './services/notifications'
 import uploadService from './services/upload'
 import { GoogleLogin, googleLogout } from '@react-oauth/google'
 import { jwtDecode } from 'jwt-decode'
+import axios from 'axios'
 
 const App = () => {
   const [user, setUser] = useState(null)
@@ -79,15 +80,22 @@ const App = () => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [desktopOpen, setDesktopOpen] = useState(true)
 
-  // Auth Handlers
-  const handleLoginSuccess = (credentialResponse) => {
+  const handleLoginSuccess = async (credentialResponse) => {
     try {
       const decoded = jwtDecode(credentialResponse.credential)
+      
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+      
+      await axios.post(`${API_URL}/api/auth/login`, {
+        token: credentialResponse.credential
+      }, { withCredentials: true })
+
       const isAdmin = decoded.email === 'pruebaparaingweb@gmail.com'
       setUser({ ...decoded, isAdmin })
       notify(`Bienvenido, ${decoded.name}`)
     } catch (err) {
-      notify('Error decoding login token', 'error')
+      console.error(err)
+      notify('Error iniciando sesión en el servidor', 'error')
     }
   }
 
