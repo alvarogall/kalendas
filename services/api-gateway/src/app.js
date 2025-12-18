@@ -30,7 +30,7 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: config.GOOGLE_CLIENT_ID
     })
     const payload = ticket.getPayload()
     const email = payload.email
@@ -90,10 +90,49 @@ const dropboxRouter = require('./routes/dropbox')
 
 app.use('/api/dropbox', dropboxRouter)
 
-app.use('/api/calendars', makeProxy(config.CALENDAR_SERVICE_URL))
-app.use('/api/events', makeProxy(config.EVENT_SERVICE_URL))
-app.use('/api/comments', makeProxy(config.COMMENT_SERVICE_URL))
-app.use('/api/notifications', makeProxy(config.NOTIFICATION_SERVICE_URL))
+const healthPayload = () => ({
+  status: 'ok',
+  gateway: {
+    googleClientIdConfigured: Boolean(config.GOOGLE_CLIENT_ID),
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+    renderGitCommit: process.env.RENDER_GIT_COMMIT,
+    renderServiceName: process.env.RENDER_SERVICE_NAME
+  },
+  services: {
+    calendars: config.CALENDAR_SERVICE_URL,
+    events: config.EVENT_SERVICE_URL,
+    comments: config.COMMENT_SERVICE_URL,
+    notifications: config.NOTIFICATION_SERVICE_URL
+  },
+  servicesRaw: config.__raw
+})
+
+app.get('/health', (_req, res) => {
+  res.json(healthPayload())
+})
+
+app.get('/api/health', (_req, res) => {
+  res.json(healthPayload())
+})
+
+app.get('/api/version', (_req, res) => {
+  res.json({
+    name: 'api-gateway',
+    renderGitCommit: process.env.RENDER_GIT_COMMIT,
+    renderServiceName: process.env.RENDER_SERVICE_NAME
+  })
+})
+
+const requireTarget = (name, target) => {
+  if (target) return makeProxy(target)
+  logger.error(`Missing ${name} target URL (env var not set).`)
+  return (_req, res) => res.status(500).json({ error: 'Service misconfigured', service: name })
+}
+
+app.use('/api/calendars', requireTarget('CALENDAR_SERVICE_URL', config.CALENDAR_SERVICE_URL))
+app.use('/api/events', requireTarget('EVENT_SERVICE_URL', config.EVENT_SERVICE_URL))
+app.use('/api/comments', requireTarget('COMMENT_SERVICE_URL', config.COMMENT_SERVICE_URL))
+app.use('/api/notifications', requireTarget('NOTIFICATION_SERVICE_URL', config.NOTIFICATION_SERVICE_URL))
 
 app.use((req, res) => {
   res.status(404).json({ error: 'unknown endpoint' })
