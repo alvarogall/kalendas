@@ -10,6 +10,19 @@ if (!url.endsWith('/api')) {
 
 export const apiBaseUrl = url
 
+const normalizeGoogleClientId = (raw) => {
+  if (!raw) return ''
+  const v = String(raw).trim().replace(/^['"]|['"]$/g, '')
+  if (v.startsWith('http://') || v.startsWith('https://')) {
+    try {
+      return new URL(v).hostname
+    } catch (_err) {
+      // fall through
+    }
+  }
+  return v
+}
+
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '674155688412-d37rtg64ds72skirp56smmbb80go0uqb.apps.googleusercontent.com'
-export const googleClientId = clientId.trim()
+export const googleClientId = normalizeGoogleClientId(clientId)
 

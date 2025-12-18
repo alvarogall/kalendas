@@ -74,12 +74,13 @@ const addAuthHeader = (proxyReq, req) => {
   }
 }
 
-const makeProxy = (target) => createProxyMiddleware({
+const makeProxy = (target, apiPrefix) => createProxyMiddleware({
   target,
   changeOrigin: true,
   onProxyReq: addAuthHeader,
-  pathRewrite: {
-  },
+  // IMPORTANT: Express strips the mount path from req.url for mounted middleware.
+  // We need to re-prepend the prefix so downstream services (which mount /api/...) receive correct paths.
+  pathRewrite: (path) => `${apiPrefix}${path}`,
   onError: (err, req, res) => {
     logger.error('Proxy error:', err.message)
     if (!res.headersSent) res.status(502).json({ error: 'Bad gateway', service: target })
@@ -123,16 +124,16 @@ app.get('/api/version', (_req, res) => {
   })
 })
 
-const requireTarget = (name, target) => {
-  if (target) return makeProxy(target)
+const requireTarget = (name, target, apiPrefix) => {
+  if (target) return makeProxy(target, apiPrefix)
   logger.error(`Missing ${name} target URL (env var not set).`)
   return (_req, res) => res.status(500).json({ error: 'Service misconfigured', service: name })
 }
 
-app.use('/api/calendars', requireTarget('CALENDAR_SERVICE_URL', config.CALENDAR_SERVICE_URL))
-app.use('/api/events', requireTarget('EVENT_SERVICE_URL', config.EVENT_SERVICE_URL))
-app.use('/api/comments', requireTarget('COMMENT_SERVICE_URL', config.COMMENT_SERVICE_URL))
-app.use('/api/notifications', requireTarget('NOTIFICATION_SERVICE_URL', config.NOTIFICATION_SERVICE_URL))
+app.use('/api/calendars', requireTarget('CALENDAR_SERVICE_URL', config.CALENDAR_SERVICE_URL, '/api/calendars'))
+app.use('/api/events', requireTarget('EVENT_SERVICE_URL', config.EVENT_SERVICE_URL, '/api/events'))
+app.use('/api/comments', requireTarget('COMMENT_SERVICE_URL', config.COMMENT_SERVICE_URL, '/api/comments'))
+app.use('/api/notifications', requireTarget('NOTIFICATION_SERVICE_URL', config.NOTIFICATION_SERVICE_URL, '/api/notifications'))
 
 app.use((req, res) => {
   res.status(404).json({ error: 'unknown endpoint' })

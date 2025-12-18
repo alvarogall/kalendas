@@ -12,6 +12,19 @@ const normalizeServiceUrl = (raw) => {
   }
 }
 
+const normalizeGoogleClientId = (raw) => {
+  if (!raw) return undefined
+  const v = String(raw).trim().replace(/^['"]|['"]$/g, '')
+  if (v.startsWith('http://') || v.startsWith('https://')) {
+    try {
+      return new URL(v).hostname
+    } catch (_err) {
+      return v
+    }
+  }
+  return v
+}
+
 const CALENDAR_SERVICE_URL = normalizeServiceUrl(process.env.CALENDAR_SERVICE_URL)
 const EVENT_SERVICE_URL = normalizeServiceUrl(process.env.EVENT_SERVICE_URL)
 const COMMENT_SERVICE_URL = normalizeServiceUrl(process.env.COMMENT_SERVICE_URL)
@@ -19,7 +32,7 @@ const NOTIFICATION_SERVICE_URL = normalizeServiceUrl(process.env.NOTIFICATION_SE
 
 module.exports = {
   PORT: process.env.PORT || process.env.GATEWAY_PORT || 10000,
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_ID: normalizeGoogleClientId(process.env.GOOGLE_CLIENT_ID),
   CALENDAR_SERVICE_URL,
   EVENT_SERVICE_URL,
   COMMENT_SERVICE_URL,
