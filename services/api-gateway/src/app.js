@@ -9,8 +9,37 @@ const logger = require('./utils/logger')
 
 const app = express()
 
+const normalizeOrigin = (raw) => {
+  if (!raw) return ''
+  const v = String(raw).trim().replace(/\/+$/, '')
+  if (!v) return ''
+  if (v.startsWith('http://') || v.startsWith('https://')) {
+    try {
+      return new URL(v).origin
+    } catch (_err) {
+      return v
+    }
+  }
+  return v
+}
+
+const getAllowedOrigins = () => {
+  const raw = process.env.FRONTEND_URL || 'http://localhost:5173'
+  return String(raw)
+    .split(',')
+    .map(s => normalizeOrigin(s))
+    .filter(Boolean)
+}
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, cb) => {
+    // allow non-browser / same-origin requests with no Origin header
+    if (!origin) return cb(null, true)
+    const allowed = getAllowedOrigins()
+    const o = normalizeOrigin(origin)
+    if (allowed.includes(o)) return cb(null, origin)
+    return cb(new Error('Not allowed by CORS'))
+  },
   credentials: true
 }))
 
@@ -105,10 +134,34 @@ const addAuthHeader = (proxyReq, req) => {
   }
 }
 
+const applyGatewayCorsToProxyResponse = (proxyRes, req) => {
+  // Downstream services often do `app.use(cors())` which sets ACAO='*'.
+  // That breaks requests with credentials (cookies) from the browser.
+  // We strip downstream CORS headers and re-apply gateway-controlled headers.
+  delete proxyRes.headers['access-control-allow-origin']
+  delete proxyRes.headers['access-control-allow-credentials']
+  delete proxyRes.headers['access-control-allow-headers']
+  delete proxyRes.headers['access-control-allow-methods']
+  delete proxyRes.headers['access-control-expose-headers']
+
+  const origin = normalizeOrigin(req.headers.origin)
+  if (!origin) return
+
+  const allowed = getAllowedOrigins()
+  if (!allowed.includes(origin)) return
+
+  proxyRes.headers['access-control-allow-origin'] = origin
+  proxyRes.headers['access-control-allow-credentials'] = 'true'
+  // Help caches behave correctly with per-origin responses
+  const vary = proxyRes.headers.vary
+  proxyRes.headers.vary = vary ? `${vary}, Origin` : 'Origin'
+}
+
 const makeProxy = (target, apiPrefix) => createProxyMiddleware({
   target,
   changeOrigin: true,
   onProxyReq: addAuthHeader,
+  onProxyRes: applyGatewayCorsToProxyResponse,
   // IMPORTANT: Express strips the mount path from req.url for mounted middleware.
   // We need to re-prepend the prefix so downstream services (which mount /api/...) receive correct paths.
   pathRewrite: (path) => `${apiPrefix}${path}`,
