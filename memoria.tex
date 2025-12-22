@@ -17,11 +17,8 @@
 \usepackage{tabularx}
 \usepackage{xcolor}
 \usepackage{listings}
-
-% --- CONFIGURACIÓN TIKZ CORREGIDA ---
 \usepackage{tikz}
-% Se añade 'shapes.geometric' para arreglar el error del 'cylinder' y 'aspect'
-\usetikzlibrary{arrows.meta, positioning, fit, shapes.geometric} 
+\usetikzlibrary{arrows.meta,positioning,fit,shapes.geometric}
 
 \hypersetup{
   colorlinks=true,
@@ -36,11 +33,10 @@
   basicstyle=\ttfamily\small,
   breaklines=true,
   frame=single,
-  columns=fullflexible,
-  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+  columns=fullflexible
 }
 
-\renewcommand{\arraystretch}{1.2}
+\renewcommand{\arraystretch}{1.15}
 
 % ======== Datos editables ========
 \newcommand{\asignatura}{Ingeniería Web 2025/26}
@@ -186,43 +182,33 @@ La arquitectura sigue un enfoque de microservicios con un API Gateway como \text
   arrow/.style={-Latex, thick}
 ]
 
-% Nodos Principales
+% Nodos
 \node[box] (web) {\textbf{Webapp}\\React + Vite};
 \node[box, right=of web] (gw) {\textbf{API Gateway}\\Express};
-
-% Servicios
 \node[box, below left=of gw] (cal) {calendar-service};
 \node[box, below=of gw] (evt) {event-service};
 \node[box, below right=of gw] (com) {comment-service};
 \node[box, below right=of evt] (noti) {notification-service};
-
-% Base de Datos
 \node[db, below=of evt] (mongo) {MongoDB\\Atlas};
 
-% Servicios Externos
+% Externos
 \node[ext, left=of cal] (ics) {Fuentes ICS\\(URL externas)};
 \node[ext, above=of gw] (google) {Google OAuth};
 \node[ext, left=of web] (osm) {OpenStreetMap};
 \node[ext, right=of com] (dropbox) {Dropbox};
 \node[ext, right=of noti] (smtp) {SMTP};
-
-% CLOUDINARY REUBICADO PARA EVITAR CRUCE DE LÍNEAS
 \node[ext, above=of web] (cloudinary) {Cloudinary};
 
-% Conexiones Webapp y Gateway
+% Conexiones
 \draw[arrow] (web) -- node[above, font=\small]{HTTP} (gw);
 \draw[arrow] (web) -- (osm);
-\draw[arrow] (web) -- (cloudinary); % Ahora la línea es directa y limpia
-
-% Conexiones Gateway a Servicios
+\draw[arrow] (web) -- (cloudinary);
 \draw[arrow] (gw) -- (cal);
 \draw[arrow] (gw) -- (evt);
 \draw[arrow] (gw) -- (com);
 \draw[arrow] (gw) -- (noti);
 \draw[arrow] (gw) -- (google);
 \draw[arrow] (gw) -- (dropbox);
-
-% Conexiones Servicios a BD y Externos
 \draw[arrow] (cal) -- (mongo);
 \draw[arrow] (evt) -- (mongo);
 \draw[arrow] (com) -- (mongo);
@@ -306,21 +292,28 @@ La aplicación es una SPA; la navegación se estructura mediante pantalla de log
   \bottomrule
 \end{tabularx}
 
+% --- SECCIÓN ACTUALIZADA ---
 \section{Notification (notificaciones)}
 \begin{tabularx}{\textwidth}{@{}l l c X@{}}
     \toprule
     \textbf{Campo} & \textbf{Tipo} & \textbf{Req.} & \textbf{Notas / Relación} \\
   \midrule
-  eventId & ObjectId & Sí & Ref. a Event \\
-  calendarId & ObjectId & Sí & Ref. a Calendar \\
+  eventId & ObjectId & Sí & Referencia a Event \\
+  calendarId & ObjectId & Sí & Referencia a Calendar \\
   channel & enum & Sí & \texttt{email} o \texttt{in-app} \\
-  recipientEmail & String & Sí & Destinatario \\
-  message & String & Sí & Mensaje \\
-  read & Boolean & No & Lectura (in-app) \\
-  status & enum & No & Estado envío email \\
-  createdAt & Date & Sí & Automático \\
+  recipientEmail & String & Sí & Email del destinatario \\
+  message & String & Sí & Mensaje de la notificación \\
+  read & Boolean & No & Estado lectura (default: false) \\
+  status & enum & No & \texttt{pending}, \texttt{sent}, \texttt{error} \\
+  attempts & Number & No & Contador reintentos (default: 0) \\
+  lastAttemptAt & Date & No & Momento del último intento \\
+  nextAttemptAt & Date & No & Planificación del siguiente intento \\
+  processedAt & Date & No & Fecha de finalización del proceso \\
+  lastError & String & No & Traza de error en caso de fallo \\
+  createdAt & Date & Sí & Automático (timestamps) \\
   \bottomrule
 \end{tabularx}
+% ---------------------------
 
 \section{UserPreference (preferencias)}
 \begin{tabularx}{\textwidth}{@{}l l c X@{}}
@@ -388,7 +381,9 @@ Visualización de mapas interactivos.
 Sincronización con calendarios externos.
 
 \section{Correo (SMTP)}
-Envío de notificaciones por email.
+El servicio de notificaciones implementa el envío de emails mediante \texttt{nodemailer} conectando con proveedores SMTP (como Gmail).
+
+\noindent\textbf{Limitación del entorno de despliegue:} La funcionalidad de envío de correos opera correctamente en el entorno de desarrollo local (Docker). Sin embargo, en el entorno de producción (Render Free Tier), se ha constatado que los puertos de salida SMTP estándar (465, 587) se encuentran bloqueados por políticas de seguridad del proveedor para evitar spam. Por este motivo, el envío de emails puede fallar con error de \texttt{ETIMEDOUT} en el despliegue cloud actual, siendo una limitación conocida de la infraestructura gratuita utilizada.
 
 \chapter{Instalación y despliegue}
 \section{Ejecución local}
@@ -399,6 +394,7 @@ docker-compose up --build -d
 
 \section{Despliegue en la nube (Render)}
 La aplicación se despliega en Render separando frontend y backend.
+\noindent\textit{Nota: Debido a las restricciones de red mencionadas en el capítulo anterior, el servicio de notificaciones por email tiene funcionalidad limitada en este entorno.}
 
 \chapter{Variables de entorno y credenciales}
 \noindent\textbf{Ubicación de variables de entorno en el proyecto:}
