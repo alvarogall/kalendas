@@ -31,15 +31,27 @@ const getAllowedOrigins = () => {
     .filter(Boolean)
 }
 
+const allowedOrigins = [
+  'http://localhost:5173',                   // Local Frontend
+  'http://localhost:4173',                   // Local Preview
+  'https://kalendas-frontend.onrender.com'   // TU DOMINIO REAL EN RENDER
+];
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://kalendas-frontend.onrender.com'
-  ],
-  credentials: true, // Permitir cookies/tokens
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origen (como curl o postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true, // Esto es OBLIGATORIO para que viajen las cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}))
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // app.use(express.json()) // Removed global json parsing to avoid consuming proxy streams
 app.use(cookieParser())
