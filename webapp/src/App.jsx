@@ -71,12 +71,23 @@ const App = () => {
   const GUEST_SELECTED_KEY = 'kalendasGuestSelectedCalendarIds'
   const GUEST_TRACKED_KEY = 'kalendasGuestTrackedCalendarIds'
 
+  const [authToken, setAuthTokenState] = useState(() => {
+    try {
+      const t = window.localStorage.getItem('kalendasAuthToken')
+      return t ? String(t) : null
+    } catch (_e) {
+      return null
+    }
+  })
+
   const setAuthToken = (token) => {
     if (token) {
       axios.defaults.headers.common.Authorization = `Bearer ${token}`
+      setAuthTokenState(String(token))
       try { window.localStorage.setItem('kalendasAuthToken', String(token)) } catch (_) {}
     } else {
       delete axios.defaults.headers.common.Authorization
+      setAuthTokenState(null)
       try { window.localStorage.removeItem('kalendasAuthToken') } catch (_) {}
     }
   }
@@ -154,6 +165,17 @@ const App = () => {
       // No mostramos toast aquí para no spamear al cargar, solo si es acción del usuario
     }
   };
+
+  // Restore token on refresh (token-mode / cookie-mode)
+  useEffect(() => {
+    try {
+      const t = window.localStorage.getItem('kalendasAuthToken')
+      if (t) setAuthToken(t)
+    } catch (_) {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Si hay usuario en localStorage pero no hay sesión/cookie válida, fuerza relogin.
   useEffect(() => {
@@ -243,18 +265,23 @@ const App = () => {
   }
 
   useEffect(() => {
-    if (user) loadData();
-  }, [user]);
-
-  // Restore token on refresh
-  useEffect(() => {
-    try {
-      const t = window.localStorage.getItem('kalendasAuthToken')
-      if (t) setAuthToken(t)
-    } catch (_) {
-      // ignore
+    if (!user) return
+    if (user?.isGuest) {
+      loadData()
+      return
     }
-  }, [])
+
+    // Cookie mode: ok to load immediately
+    if (axios.defaults.withCredentials) {
+      loadData()
+      return
+    }
+
+    // Token mode: wait until token is present
+    if (authToken) {
+      loadData()
+    }
+  }, [user, authToken]);
 
   // Reset de estado dependiente de usuario: evita que al cambiar de cuenta
   // se hereden selecciones/paneles/filtros del usuario anterior.
@@ -290,8 +317,8 @@ const App = () => {
     setIsNotificationsOpen(false)
     setEditingEvent(null)
 
-    // Token: no lo reutilizamos entre cuentas
-    setAuthToken(null)
+    // Token: NO lo borramos aquí.
+    // En modo Render (sin cookies) borrarlo aquí rompe la sesión recién iniciada.
   }, [user?.email, user?.isGuest])
 
   // Hidrata preferencias (cross-browser) desde backend; fallback a localStorage
@@ -472,6 +499,9 @@ const App = () => {
         notify('Has entrado como invitado')
         return
       }
+
+      // Limpia token previo antes de autenticar de nuevo
+      setAuthToken(null)
 
       const decoded = jwtDecode(credentialResponse.credential);
       const loginRes = await axios.post(`${apiBaseUrl}/auth/login`, { token: credentialResponse.credential });
