@@ -162,6 +162,13 @@ const App = () => {
       return
     }
 
+    // If we are not using cookies (cross-origin API on Render), do not call /token.
+    // The app relies on the JWT returned by /auth/login and stored in localStorage.
+    if (!axios.defaults.withCredentials) {
+      setSessionChecked(true)
+      return
+    }
+
     let cancelled = false
     const validateSession = async () => {
       try {
@@ -467,7 +474,7 @@ const App = () => {
       }
 
       const decoded = jwtDecode(credentialResponse.credential);
-      const loginRes = await axios.post(`${apiBaseUrl}/auth/login`, { token: credentialResponse.credential }, { withCredentials: true });
+      const loginRes = await axios.post(`${apiBaseUrl}/auth/login`, { token: credentialResponse.credential });
       const appToken = loginRes?.data?.token
       if (appToken) setAuthToken(appToken)
       

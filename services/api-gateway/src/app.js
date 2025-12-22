@@ -31,22 +31,26 @@ const getAllowedOrigins = () => {
     .filter(Boolean)
 }
 
-const allowedOrigins = [
-  'http://localhost:5173',                   // Local Frontend
-  'http://localhost:4173',                   // Local Preview
-  'https://kalendas-frontend.onrender.com'   // TU DOMINIO REAL EN RENDER
-];
+const allowedOrigins = (() => {
+  const fromEnv = getAllowedOrigins()
+  // Sensible defaults for local dev if env is missing
+  const defaults = ['http://localhost:5173', 'http://localhost:4173']
+  const merged = Array.from(new Set([...fromEnv, ...defaults].map(normalizeOrigin).filter(Boolean)))
+  return merged
+})()
 
 app.use(cors({
   origin: function (origin, callback) {
     // Permitir peticiones sin origen (como curl o postman)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
+
+    const o = normalizeOrigin(origin)
+    if (!allowedOrigins.includes(o)) {
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
     }
-    return callback(null, true);
+    // Return the exact origin so ACAO is not '*'
+    return callback(null, origin);
   },
   credentials: true, // Esto es OBLIGATORIO para que viajen las cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -157,8 +161,7 @@ const applyGatewayCorsToProxyResponse = (proxyRes, req) => {
   const origin = normalizeOrigin(req.headers.origin)
   if (!origin) return
 
-  const allowed = getAllowedOrigins()
-  if (!allowed.includes(origin)) return
+  if (!allowedOrigins.includes(origin)) return
 
   proxyRes.headers['access-control-allow-origin'] = origin
   proxyRes.headers['access-control-allow-credentials'] = 'true'

@@ -5,7 +5,10 @@ import App from './App.jsx'
 import './index.css'
 import axios from 'axios'
 
-axios.defaults.withCredentials = true; 
+const rawApiUrl = import.meta.env.VITE_API_URL || ''
+// Cookie-based auth only works reliably when API is same-origin (e.g. VITE_API_URL="/api").
+// When API is cross-origin (Render static site -> gateway web service), use token auth (no cookies).
+axios.defaults.withCredentials = String(rawApiUrl).trim().startsWith('/')
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "TU_CLIENT_ID_DE_GOOGLE";
 
