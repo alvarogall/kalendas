@@ -7,7 +7,7 @@ info:
     Notas:
     - Todas las fechas están en ISO 8601.
     - Los parámetros de búsqueda se pasan como query string en el endpoint raíz de cada recurso.
-    - Las respuestas devuelven `id` (string) en lugar de `_id`.
+    - Las respuestas devuelven id (string) en lugar de _id.
   version: 1.0.0
   contact:
     name: Equipo Kalendas
@@ -24,6 +24,8 @@ tags:
     description: Subida de archivos a Dropbox
   - name: Calendars
     description: Gestión y consulta de calendarios
+  - name: Preferences
+    description: Preferencias de usuario (calendarios seguidos/seleccionados)
   - name: Events
     description: Gestión y consulta de eventos
   - name: Comments
@@ -33,8 +35,220 @@ tags:
   - name: Health
     description: Estado del gateway
 
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT emitido por el gateway. Se puede enviar como Authorization: Bearer <token>.
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: |
+        Cookie httpOnly auth_token establecida por /api/auth/login. En navegadores, el gateway también propaga esta cookie como Authorization a los microservicios.
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+          nullable: true
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        gateway:
+          type: object
+          properties:
+            googleClientIdConfigured:
+              type: boolean
+            frontendUrl:
+              type: string
+            renderGitCommit:
+              type: string
+              nullable: true
+            renderServiceName:
+              type: string
+              nullable: true
+        services:
+          type: object
+          additionalProperties:
+            type: string
+        servicesRaw:
+          type: object
+          additionalProperties:
+            type: string
+
+    Calendar:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        organizer: { type: string }
+        organizerEmail: { type: string, format: email }
+        description: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time, nullable: true }
+        keywords:
+          type: array
+          items: { type: string }
+        notificationChannel:
+          type: string
+          enum: [email, in-app]
+        parentId:
+          type: string
+          nullable: true
+        subCalendars:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/Calendar'
+        sourceUrl:
+          type: string
+          nullable: true
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CalendarCreate:
+      type: object
+      required: [title, organizer, organizerEmail, startDate]
+      properties:
+        title: { type: string }
+        organizer: { type: string }
+        organizerEmail: { type: string, format: email }
+        description: { type: string }
+        startDate: { type: string, format: date-time }
+        endDate: { type: string, format: date-time }
+        keywords:
+          type: array
+          items: { type: string }
+        notificationChannel:
+          type: string
+          enum: [email, in-app]
+          default: email
+        parentId:
+          type: string
+          nullable: true
+    CalendarUpdate:
+      allOf:
+        - $ref: '#/components/schemas/CalendarCreate'
+
+    Coordinates:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: ['Point']
+        coordinates:
+          type: array
+          description: '[longitud, latitud]'
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time }
+        location: { type: string }
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        organizer: { type: string }
+        calendar: { type: string, description: 'ID de Calendar' }
+        description: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        attachments:
+          type: array
+          items: { type: string }
+        mapLink: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    EventCreate:
+      type: object
+      required: [title, startTime, endTime, location, calendar]
+      properties:
+        title: { type: string }
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time }
+        location: { type: string }
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        calendar: { type: string }
+        description: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        attachments:
+          type: array
+          items: { type: string }
+        mapLink: { type: string }
+    EventUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EventCreate'
+
+    Comment:
+      type: object
+      properties:
+        id: { type: string }
+        eventId: { type: string }
+        user: { type: string }
+        text: { type: string }
+        date: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CommentCreate:
+      type: object
+      required: [eventId, user, text]
+      properties:
+        eventId: { type: string }
+        user: { type: string }
+        text: { type: string }
+    CommentUpdate:
+      allOf:
+        - $ref: '#/components/schemas/CommentCreate'
+
+    Notification:
+      type: object
+      properties:
+        id: { type: string }
+        eventId: { type: string }
+        calendarId: { type: string }
+        channel: { type: string, enum: [email, in-app] }
+        recipientEmail: { type: string, format: email }
+        message: { type: string }
+        read: { type: boolean }
+        status: { type: string, enum: [pending, sent, error] }
+        attempts: { type: integer }
+        lastError: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    NotificationCreate:
+      type: object
+      required: [eventId, calendarId, commenterName]
+      properties:
+        eventId: { type: string }
+        calendarId: { type: string }
+        commenterName: { type: string }
+
 paths:
-  /auth/login:
+  /api/auth/login:
     post:
       tags: [Auth]
       summary: Iniciar sesión con Google ID Token
@@ -59,11 +273,15 @@ paths:
                   email: { type: string }
                   name: { type: string }
                   isAdmin: { type: boolean }
+                  token: { type: string, description: JWT para uso en Authorization si no se usan cookies }
                   message: { type: string }
         '401':
           description: Token inválido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
-  /auth/logout:
+  /api/auth/logout:
     post:
       tags: [Auth]
       summary: Cerrar sesión
@@ -71,7 +289,7 @@ paths:
         '200':
           description: Logout exitoso
 
-  /token:
+  /api/token:
     get:
       tags: [Auth]
       summary: Obtener token de sesión actual
@@ -87,8 +305,11 @@ paths:
                   token: { type: string }
         '401':
           description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
-  /dropbox/upload:
+  /api/dropbox/upload:
     post:
       tags: [Dropbox]
       summary: Subir archivo a Dropbox
@@ -110,6 +331,41 @@ paths:
                 type: object
                 properties:
                   url: { type: string }
+        '400':
+          description: Falta el archivo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/dropbox/delete:
+    post:
+      tags: [Dropbox]
+      summary: Eliminar archivo de Dropbox por shared link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sharedUrl]
+              properties:
+                sharedUrl:
+                  type: string
+                  description: URL compartida de Dropbox devuelta por /api/dropbox/upload
+      responses:
+        '200':
+          description: Eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /health:
     get:
@@ -121,25 +377,48 @@ paths:
           description: OK
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
-                  services:
-                    type: object
-                    additionalProperties:
-                      type: string
+              schema: { $ref: '#/components/schemas/HealthResponse' }
               examples:
                 ejemplo:
                   value:
                     status: ok
+                    gateway:
+                      googleClientIdConfigured: true
+                      frontendUrl: http://localhost:5173
+                      renderGitCommit: null
+                      renderServiceName: null
                     services:
                       calendars: http://localhost:3001
                       events: http://localhost:3002
                       comments: http://localhost:3003
                       notifications: http://localhost:3004
+
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Comprobar estado del gateway (alias)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+
+  /api/version:
+    get:
+      tags: [Health]
+      summary: Información de versión/despliegue del gateway
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  renderGitCommit: { type: string, nullable: true }
+                  renderServiceName: { type: string, nullable: true }
 
   /api/calendars:
     get:
@@ -175,6 +454,10 @@ paths:
           name: commentedBy
           schema: { type: string }
           description: Usuario que ha comentado en eventos del calendario
+        - in: query
+          name: includeAll
+          schema: { type: string, enum: ['true','false'] }
+          description: Si es true, incluye también subcalendarios (por defecto solo calendarios raíz)
       responses:
         '200':
           description: Lista de calendarios
@@ -223,6 +506,102 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Calendar' }
 
+  /api/calendars/import:
+    post:
+      tags: [Calendars]
+      summary: Importar calendario desde URL ICS
+      description: |
+        Crea un calendario y crea eventos a partir de un feed ICS.
+        Requiere autenticación (para fijar organizer/organizerEmail como el usuario autenticado).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, description: URL pública https://... del ICS }
+                provider: { type: string, description: Etiqueta informativa (p.ej. Google/Outlook/Web) }
+      responses:
+        '201':
+          description: Importado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  calendar: { $ref: '#/components/schemas/Calendar' }
+                  eventsFound: { type: integer }
+                  eventsCreated: { type: integer }
+                  eventsFailed: { type: integer }
+                  sampleErrors:
+                    type: array
+                    items: { type: string }
+                  eventsTruncated: { type: boolean }
+        '400':
+          description: Petición inválida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/calendars/{id}/sync:
+    post:
+      tags: [Calendars]
+      summary: Sincronizar un calendario importado desde su URL ICS
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Sincronización completada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  eventsCreated: { type: integer }
+                  eventsFailed: { type: integer }
+                  sampleErrors:
+                    type: array
+                    items: { type: string }
+                  lastSyncedAt: { type: string, format: date-time }
+        '400':
+          description: No es importado o petición inválida
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: No encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /api/calendars/{id}:
     get:
       tags: [Calendars]
@@ -238,6 +617,9 @@ paths:
     put:
       tags: [Calendars]
       summary: Actualizar calendario por ID
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - in: path
           name: id
@@ -250,10 +632,23 @@ paths:
             schema: { $ref: '#/components/schemas/CalendarUpdate' }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Calendar' } } } }
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { description: No encontrado }
     delete:
       tags: [Calendars]
       summary: Eliminar calendario por ID
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - in: path
           name: id
@@ -261,6 +656,16 @@ paths:
           schema: { type: string }
       responses:
         '204': { description: Eliminado }
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { description: No encontrado }
 
   /api/calendars/{id}/subcalendars:
@@ -331,6 +736,10 @@ paths:
     post:
       tags: [Events]
       summary: Crear evento
+      description: Requiere autenticación. El organizer se fija al email del usuario autenticado.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -348,6 +757,37 @@ paths:
                   description: Bienvenida a nuevos estudiantes
       responses:
         '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Event' } } } }
+        '400':
+          description: Petición inválida (validación)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: No autorizado (no eres owner del calendario)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    delete:
+      tags: [Events]
+      summary: Eliminar todos los eventos de un calendario
+      description: Usado por sincronización/importación. Elimina por calendarId.
+      parameters:
+        - in: query
+          name: calendarId
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Eliminado }
+        '400':
+          description: Falta calendarId
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/events/{id}:
     get:
@@ -364,6 +804,9 @@ paths:
     put:
       tags: [Events]
       summary: Actualizar evento por ID
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - in: path
           name: id
@@ -380,6 +823,9 @@ paths:
     delete:
       tags: [Events]
       summary: Eliminar evento por ID
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - in: path
           name: id
@@ -387,6 +833,47 @@ paths:
           schema: { type: string }
       responses:
         '204': { description: Eliminado }
+        '404': { description: No encontrado }
+
+  /api/events/{id}/comments:
+    get:
+      tags: [Events]
+      summary: Listar comentarios de un evento (proxy a comment-service)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Comment' }
+        '404': { description: No encontrado }
+
+  /api/events/{id}/calendar:
+    get:
+      tags: [Events]
+      summary: Obtener el calendario asociado a un evento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Calendar'
+                  - type: object
+                    properties:
+                      calendarId: { type: string }
         '404': { description: No encontrado }
 
   /api/comments:
@@ -480,8 +967,11 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '204': { description: Eliminado }
-        '404': { description: No encontrado }
+        '405':
+          description: Eliminación deshabilitada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/notifications:
     get:
@@ -536,6 +1026,80 @@ paths:
                   commenterName: ana.romero
       responses:
         '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
+        '200':
+          description: Saltada (auto-notificación)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  skipped: { type: boolean }
+                  reason: { type: string }
+
+  /api/preferences:
+    get:
+      tags: [Preferences]
+      summary: Obtener preferencias del usuario autenticado
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trackedCalendarIds:
+                    type: array
+                    items: { type: string }
+                  selectedCalendarIds:
+                    type: array
+                    items: { type: string }
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    put:
+      tags: [Preferences]
+      summary: Guardar preferencias del usuario autenticado
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trackedCalendarIds:
+                  type: array
+                  items: { type: string }
+                selectedCalendarIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trackedCalendarIds:
+                    type: array
+                    items: { type: string }
+                  selectedCalendarIds:
+                    type: array
+                    items: { type: string }
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/notifications/{id}:
     get:
@@ -573,130 +1137,3 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Notification' } } } }
         '404': { description: No encontrado }
-
-components:
-  schemas:
-    Calendar:
-      type: object
-      properties:
-        id: { type: string }
-        title: { type: string }
-        organizer: { type: string }
-        organizerEmail: { type: string, format: email }
-        description: { type: string }
-        startDate: { type: string, format: date-time }
-        endDate: { type: string, format: date-time, nullable: true }
-        keywords:
-          type: array
-          items: { type: string }
-        notificationChannel:
-          type: string
-          enum: [email, in-app]
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-    CalendarCreate:
-      type: object
-      required: [title, organizer, organizerEmail, startDate]
-      properties:
-        title: { type: string }
-        organizer: { type: string }
-        organizerEmail: { type: string, format: email }
-        description: { type: string }
-        startDate: { type: string, format: date-time }
-        endDate: { type: string, format: date-time }
-        keywords:
-          type: array
-          items: { type: string }
-        notificationChannel:
-          type: string
-          enum: [email, in-app]
-          default: email
-    CalendarUpdate:
-      allOf:
-        - $ref: '#/components/schemas/CalendarCreate'
-
-    Event:
-      type: object
-      properties:
-        id: { type: string }
-        title: { type: string }
-        startTime: { type: string, format: date-time }
-        endTime: { type: string, format: date-time }
-        location: { type: string }
-        organizer: { type: string }
-        calendar: { type: string, description: 'ID de Calendar' }
-        description: { type: string }
-        images:
-          type: array
-          items: { type: string }
-        attachments:
-          type: array
-          items: { type: string }
-        mapLink: { type: string }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-    EventCreate:
-      type: object
-      required: [title, startTime, endTime, location, organizer, calendar]
-      properties:
-        title: { type: string }
-        startTime: { type: string, format: date-time }
-        endTime: { type: string, format: date-time }
-        location: { type: string }
-        organizer: { type: string }
-        calendar: { type: string }
-        description: { type: string }
-        images:
-          type: array
-          items: { type: string }
-        attachments:
-          type: array
-          items: { type: string }
-        mapLink: { type: string }
-    EventUpdate:
-      allOf:
-        - $ref: '#/components/schemas/EventCreate'
-
-    Comment:
-      type: object
-      properties:
-        id: { type: string }
-        eventId: { type: string }
-        user: { type: string }
-        text: { type: string }
-        date: { type: string, format: date-time }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-    CommentCreate:
-      type: object
-      required: [eventId, user, text]
-      properties:
-        eventId: { type: string }
-        user: { type: string }
-        text: { type: string }
-    CommentUpdate:
-      allOf:
-        - $ref: '#/components/schemas/CommentCreate'
-
-    Notification:
-      type: object
-      properties:
-        id: { type: string }
-        eventId: { type: string }
-        calendarId: { type: string }
-        channel: { type: string, enum: [email, in-app] }
-        recipientEmail: { type: string, format: email }
-        message: { type: string }
-        read: { type: boolean }
-        status: { type: string, enum: [pending, sent, error] }
-        attempts: { type: integer }
-        lastError: { type: string, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-    NotificationCreate:
-      type: object
-      required: [eventId, calendarId, commenterName]
-      properties:
-        eventId: { type: string }
-        calendarId: { type: string }
-        commenterName: { type: string }

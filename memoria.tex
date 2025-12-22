@@ -1,0 +1,418 @@
+% !TeX program = pdflatex
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{listings}
+
+% --- CONFIGURACIÓN TIKZ CORREGIDA ---
+\usepackage{tikz}
+% Se añade 'shapes.geometric' para arreglar el error del 'cylinder' y 'aspect'
+\usetikzlibrary{arrows.meta, positioning, fit, shapes.geometric} 
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue,
+  pdftitle={Kalendas: aplicación web de calendarios de eventos},
+  pdfauthor={Grupo 2E}
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+}
+
+\renewcommand{\arraystretch}{1.2}
+
+% ======== Datos editables ========
+\newcommand{\asignatura}{Ingeniería Web 2025/26}
+\newcommand{\centro}{Departamento de Lenguajes y Ciencias de la Computación}
+\newcommand{\caso}{Kalendas: aplicación web de calendarios de eventos}
+\newcommand{\grupo}{Grupo 2E}
+
+% URLs (cloud)
+\newcommand{\urlFrontend}{https://kalendas-frontend.onrender.com}
+\newcommand{\urlGateway}{https://kalendas-gateway-8i8x.onrender.com}
+
+\begin{document}
+
+% ===================== Portada =====================
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+
+  {\Large \asignatura \par}
+  \vspace{0.6cm}
+  {\large \centro \par}
+
+  \vfill
+
+  {\Huge\bfseries \caso \par}
+  \vspace{0.5cm}
+  {\Large\bfseries Memoria técnica final \par}
+
+  \vfill
+
+  {\Large \grupo \par}
+  \vspace{0.5cm}
+
+  % --- LISTA DE INTEGRANTES ---
+  {\large
+  Miguel Carmona Cabello \\
+  Álvaro Gallardo Rubio \\
+  Pablo Gálvez Castillo \\
+  Pablo Gámez Guerrero \\
+  Máximo Prados Meléndez \\
+  Jesús Repiso Río \par
+  }
+  % ----------------------------
+
+  \vfill
+
+  {\large \today \par}
+\end{titlepage}
+
+% ===================== Índice =====================
+\tableofcontents
+\clearpage
+
+\chapter{URLs de despliegue en la nube}
+\begin{itemize}[leftmargin=*]
+  \item Frontend (Render): \url{\urlFrontend}
+  \item API Gateway (Render): \url{\urlGateway}
+\end{itemize}
+
+\chapter{Tecnologías utilizadas}
+\section{Frontend}
+\begin{itemize}[leftmargin=*]
+  \item React + Vite
+  \item UI/UX: componentes propios + Tailwind CSS
+  \item Calendario: \texttt{react-big-calendar}
+  \item Fechas: \texttt{date-fns}
+  \item Mapas: Leaflet / React-Leaflet (OpenStreetMap)
+  \item HTTP: Axios
+  \item OAuth en cliente: \texttt{@react-oauth/google}
+\end{itemize}
+
+\section{Backend}
+\begin{itemize}[leftmargin=*]
+  \item Node.js + Express
+  \item API Gateway con \texttt{http-proxy-middleware}
+  \item Autenticación: Google OAuth2 (verificación de ID token) + JWT del gateway
+  \item Persistencia: MongoDB (vía Mongoose)
+\end{itemize}
+
+\section{Infraestructura y despliegue}
+\begin{itemize}[leftmargin=*]
+  \item Docker y Docker Compose para ejecución local
+  \item Render como proveedor cloud (frontend y servicios backend)
+  \item MongoDB Atlas como servicio de base de datos (cluster en la nube)
+\end{itemize}
+
+\chapter{Requisitos del caso de estudio y abordaje técnico}
+\section{Gestión de calendarios y eventos}
+\begin{itemize}[leftmargin=*]
+  \item CRUD de calendarios y eventos vía API REST.
+  \item Jerarquía de calendarios mediante \texttt{parentId} y \texttt{subCalendars}.
+  \item Visualización en calendario (mes/semana/día) en la SPA.
+\end{itemize}
+
+\section{Búsqueda y selección de calendarios}
+\begin{itemize}[leftmargin=*]
+  \item Filtros de búsqueda por criterios (título, organizador, fechas, etc.) desde la UI.
+  \item Preferencias persistidas de calendarios seguidos/seleccionados (colección por usuario).
+\end{itemize}
+
+\section{Integración con mapas}
+\begin{itemize}[leftmargin=*]
+  \item Ubicación de eventos representable en mapa mediante coordenadas opcionales.
+  \item Uso de OpenStreetMap como proveedor de tiles.
+\end{itemize}
+
+\section{Comentarios y notificaciones}
+\begin{itemize}[leftmargin=*]
+  \item Comentarios asociados a eventos.
+  \item Notificaciones in-app y por email (según canal).
+\end{itemize}
+
+\section{Importación de calendarios ICS}
+\begin{itemize}[leftmargin=*]
+  \item Importación desde URL ICS y sincronización posterior usando la URL persistida.
+\end{itemize}
+
+\section{Seguridad y permisos}
+\begin{itemize}[leftmargin=*]
+  \item Modo invitado (guest) de solo lectura.
+  \item Restricciones de modificación (CRUD) en base al email propietario.
+  \item Soporte de token en header o cookie para compatibilidad con despliegues cross-origin.
+\end{itemize}
+
+\chapter{Arquitectura y navegación}
+\section{Arquitectura general}
+La arquitectura sigue un enfoque de microservicios con un API Gateway como \textit{entrypoint}:\\
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Webapp (SPA)}: UI en React que consume el gateway.
+  \item \textbf{API Gateway}: punto único de entrada, autenticación y proxy a los servicios.
+  \item \textbf{Servicios de dominio}: calendar-service, event-service, comment-service, notification-service.
+  \item \textbf{MongoDB Atlas}: persistencia común (colecciones por entidad).
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  node distance=10mm and 14mm,
+  box/.style={draw, rounded corners, align=center, inner sep=6pt},
+  db/.style={draw, cylinder, shape border rotate=90, aspect=0.25, align=center, inner sep=6pt},
+  ext/.style={draw, dashed, rounded corners, align=center, inner sep=6pt},
+  arrow/.style={-Latex, thick}
+]
+
+% Nodos Principales
+\node[box] (web) {\textbf{Webapp}\\React + Vite};
+\node[box, right=of web] (gw) {\textbf{API Gateway}\\Express};
+
+% Servicios
+\node[box, below left=of gw] (cal) {calendar-service};
+\node[box, below=of gw] (evt) {event-service};
+\node[box, below right=of gw] (com) {comment-service};
+\node[box, below right=of evt] (noti) {notification-service};
+
+% Base de Datos
+\node[db, below=of evt] (mongo) {MongoDB\\Atlas};
+
+% Servicios Externos
+\node[ext, left=of cal] (ics) {Fuentes ICS\\(URL externas)};
+\node[ext, above=of gw] (google) {Google OAuth};
+\node[ext, left=of web] (osm) {OpenStreetMap};
+\node[ext, right=of com] (dropbox) {Dropbox};
+\node[ext, right=of noti] (smtp) {SMTP};
+
+% CLOUDINARY REUBICADO PARA EVITAR CRUCE DE LÍNEAS
+\node[ext, above=of web] (cloudinary) {Cloudinary};
+
+% Conexiones Webapp y Gateway
+\draw[arrow] (web) -- node[above, font=\small]{HTTP} (gw);
+\draw[arrow] (web) -- (osm);
+\draw[arrow] (web) -- (cloudinary); % Ahora la línea es directa y limpia
+
+% Conexiones Gateway a Servicios
+\draw[arrow] (gw) -- (cal);
+\draw[arrow] (gw) -- (evt);
+\draw[arrow] (gw) -- (com);
+\draw[arrow] (gw) -- (noti);
+\draw[arrow] (gw) -- (google);
+\draw[arrow] (gw) -- (dropbox);
+
+% Conexiones Servicios a BD y Externos
+\draw[arrow] (cal) -- (mongo);
+\draw[arrow] (evt) -- (mongo);
+\draw[arrow] (com) -- (mongo);
+\draw[arrow] (noti) -- (mongo);
+\draw[arrow] (cal) -- (ics);
+\draw[arrow] (noti) -- (smtp);
+
+\end{tikzpicture}%
+}
+\caption{Arquitectura de Kalendas (componentes, persistencia e integraciones externas).}
+\end{figure}
+
+\section{Flujos principales}
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Login}: el cliente obtiene un ID token de Google y lo envía al gateway; el gateway emite un JWT.
+  \item \textbf{CRUD}: el cliente llama al gateway con JWT; el gateway reenvía al microservicio correspondiente.
+  \item \textbf{Import ICS}: calendar-service descarga el ICS, lo parsea y crea eventos en el event-service.
+  \item \textbf{Notificaciones}: notification-service genera notificaciones in-app y/o envía correo (SMTP).
+\end{itemize}
+
+\section{Esquema de navegación (UI)}
+La aplicación es una SPA; la navegación se estructura mediante pantalla de login, vista principal y diálogos:
+\begin{itemize}[leftmargin=*]
+  \item Pantalla de inicio: login OAuth (o acceso anónimo, si aplica).
+  \item Vista principal: calendario + lista/selector de calendarios.
+  \item Diálogos: crear/editar calendario, crear/editar evento, importación ICS, ajustes, notificaciones.
+\end{itemize}
+
+\chapter{Modelo de datos (MongoDB)}
+\noindent En esta sección se resumen las entidades persistidas en MongoDB (definidas con Mongoose) y sus relaciones.
+
+\section{Calendar (calendarios)}
+\begin{tabularx}{\textwidth}{@{}l l c X@{}}
+    \toprule
+    \textbf{Campo} & \textbf{Tipo} & \textbf{Req.} & \textbf{Notas / Relación} \\
+  \midrule
+  title & String & Sí & Identificador funcional (mín. 3) \\
+  organizer & String & Sí & Nombre/alias del organizador \\
+  organizerEmail & String & Sí & Email del propietario \\
+  description & String & No & Hasta 5000 caracteres \\
+  startDate & Date & Sí & Fecha base del calendario \\
+  endDate & Date & No & Rango opcional \\
+  keywords & [String] & No & Etiquetas / búsqueda \\
+  notificationChannel & enum & No & \texttt{email} o \texttt{in-app} \\
+  parentId & ObjectId & No & Referencia a Calendar \\
+  subCalendars & [ObjectId] & No & Lista de subcalendarios \\
+  sourceUrl & String & No & URL ICS de origen \\
+  lastSyncedAt & Date & No & Marca de tiempo de \textit{sync} \\
+  createdAt & Date & Sí & Automático \\
+  \bottomrule
+\end{tabularx}
+
+\section{Event (eventos)}
+\begin{tabularx}{\textwidth}{@{}l l c X@{}}
+    \toprule
+    \textbf{Campo} & \textbf{Tipo} & \textbf{Req.} & \textbf{Notas / Relación} \\
+  \midrule
+  title & String & Sí & Título del evento (mín. 3) \\
+  startTime & Date & Sí & Inicio (ISO 8601) \\
+  endTime & Date & Sí & Fin (ISO 8601) \\
+  location & String & Sí & Ubicación textual \\
+  coordinates & GeoJSON & No & \texttt{[long, lat]} \\
+  organizer & String & Sí & Organizador \\
+  calendar & ObjectId & Sí & Ref. a Calendar \\
+  description & String & No & Descripción \\
+  images & [String] & No & URLs (Cloudinary) \\
+  attachments & [String] & No & URLs (Dropbox) \\
+  createdAt & Date & Sí & Automático \\
+  \bottomrule
+\end{tabularx}
+
+\section{Comment (comentarios)}
+\begin{tabularx}{\textwidth}{@{}l l c X@{}}
+    \toprule
+    \textbf{Campo} & \textbf{Tipo} & \textbf{Req.} & \textbf{Notas / Relación} \\
+  \midrule
+  eventId & ObjectId & Sí & Ref. a Event \\
+  user & String & Sí & Identidad usuario \\
+  text & String & Sí & Texto (máx. 1000) \\
+  createdAt & Date & Sí & Automático \\
+  \bottomrule
+\end{tabularx}
+
+\section{Notification (notificaciones)}
+\begin{tabularx}{\textwidth}{@{}l l c X@{}}
+    \toprule
+    \textbf{Campo} & \textbf{Tipo} & \textbf{Req.} & \textbf{Notas / Relación} \\
+  \midrule
+  eventId & ObjectId & Sí & Ref. a Event \\
+  calendarId & ObjectId & Sí & Ref. a Calendar \\
+  channel & enum & Sí & \texttt{email} o \texttt{in-app} \\
+  recipientEmail & String & Sí & Destinatario \\
+  message & String & Sí & Mensaje \\
+  read & Boolean & No & Lectura (in-app) \\
+  status & enum & No & Estado envío email \\
+  createdAt & Date & Sí & Automático \\
+  \bottomrule
+\end{tabularx}
+
+\section{UserPreference (preferencias)}
+\begin{tabularx}{\textwidth}{@{}l l c X@{}}
+    \toprule
+    \textbf{Campo} & \textbf{Tipo} & \textbf{Req.} & \textbf{Notas / Relación} \\
+  \midrule
+  userEmail & String & Sí & \textbf{Único} (index) \\
+  trackedCalendarIds & [String] & No & Calendarios seguidos \\
+  selectedCalendarIds & [String] & No & Calendarios visibles \\
+  createdAt & Date & Sí & Automático \\
+  \bottomrule
+\end{tabularx}
+
+\chapter{API REST desarrollada}
+\section{Documentación OpenAPI}
+La especificación OpenAPI del gateway está en:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{services/api-gateway/docs/openapi.yaml}
+\end{itemize}
+Además, existe una UI local de Swagger (estática) en:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{services/api-gateway/docs/swagger-ui.html}
+\end{itemize}
+
+\noindent\textbf{Cómo usarla (local):}
+\begin{itemize}[leftmargin=*]
+  \item Levantar la aplicación con Docker Compose.
+  \item Abrir \texttt{swagger-ui.html} en un navegador (o servir esa carpeta con un servidor estático).
+  \item Seleccionar como \textit{server} \texttt{http://localhost:8080}.
+\end{itemize}
+
+\noindent\textbf{Uso en otras herramientas:} el fichero \texttt{openapi.yaml} se puede importar en Swagger Editor, Postman o Insomnia.
+
+\section{Autenticación y token}
+\begin{itemize}[leftmargin=*]
+  \item \texttt{POST /api/auth/login}: Login Google + JWT.
+  \item \texttt{POST /api/auth/logout}: Logout.
+  \item \texttt{GET /api/token}: Obtener token actual.
+\end{itemize}
+
+\section{Recursos principales}
+\begin{itemize}[leftmargin=*]
+  \item Calendarios: \texttt{/api/calendars}
+  \item Preferencias: \texttt{/api/preferences}
+  \item Eventos: \texttt{/api/events}
+  \item Comentarios: \texttt{/api/comments}
+  \item Notificaciones: \texttt{/api/notifications}
+  \item Archivos: \texttt{/api/dropbox/upload}
+\end{itemize}
+
+\chapter{Servicios externos}
+\section{Google OAuth 2.0}
+Autenticación de usuarios.
+
+\section{Cloudinary (imágenes)}
+Almacenamiento de imágenes de portada de eventos.
+
+\section{Dropbox (adjuntos)}
+Almacenamiento de archivos adjuntos (PDF, DOCX, etc.).
+
+\section{OpenStreetMap (mapas)}
+Visualización de mapas interactivos.
+
+\section{Importación ICS}
+Sincronización con calendarios externos.
+
+\section{Correo (SMTP)}
+Envío de notificaciones por email.
+
+\chapter{Instalación y despliegue}
+\section{Ejecución local}
+\begin{lstlisting}
+cd deployment
+docker-compose up --build -d
+\end{lstlisting}
+
+\section{Despliegue en la nube (Render)}
+La aplicación se despliega en Render separando frontend y backend.
+
+\chapter{Variables de entorno y credenciales}
+\noindent\textbf{Ubicación de variables de entorno en el proyecto:}
+\begin{itemize}[leftmargin=*]
+  \item Ejecución local con Docker: \texttt{deployment/config/env/}
+  \item Despliegue cloud: Variables de entorno en Render.
+\end{itemize}
+
+\noindent\textbf{Política de credenciales:} no se incluyen contraseñas, tokens ni secretos en esta memoria. La única credencial explicitada es la URI de MongoDB:
+
+\begin{lstlisting}
+MONGODB_URI=mongodb+srv://grupo2e:1Ulfx8z105cLZ3O0@kalendas.ndlyw4p.mongodb.net/?retryWrites=true&w=majority
+\end{lstlisting}
+
+\noindent El resto de credenciales (JWT, SMTP, Dropbox, Cloudinary, Google) están definidas como variables de entorno.
+
+\end{document}

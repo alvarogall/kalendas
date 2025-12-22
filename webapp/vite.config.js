@@ -6,10 +6,7 @@ export default defineConfig({
   server: {
     host: true,
     headers: {
-      // Esta es la clave para que Google Login funcione y no bloquee el popup
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
-      // Esta a veces es necesaria si usas SharedArrayBuffer, si no, puedes probar sin ella, 
-      // pero para evitar problemas déjala en unsafe-none o credentialless
       'Cross-Origin-Embedder-Policy': 'unsafe-none' 
     },
     proxy: {
@@ -21,7 +18,6 @@ export default defineConfig({
       }
     }
   },
-  // AÑADE ESTO TAMBIÉN PARA PRODUCCIÓN (RENDER)
   preview: {
     host: true,
     port: 4173,

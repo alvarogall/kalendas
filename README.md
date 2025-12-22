@@ -1,56 +1,111 @@
-# Kalendas - Plataforma de Gestión de Calendarios y Eventos
 
-Kalendas es una aplicación web distribuida diseñada para la gestión colaborativa de calendarios y eventos. Desarrollada bajo una arquitectura de microservicios, permite a los usuarios crear, organizar y compartir eventos de manera eficiente, integrando funcionalidades avanzadas como geolocalización, almacenamiento en la nube y notificaciones.
+# Kalendas
 
-## 🚀 Características Principales
+Kalendas es una aplicación web para **gestión de calendarios de eventos** (creación, visualización, importación y colaboración), desarrollada como caso de estudio de *Ingeniería Web 2025/26*.
 
-*   **Gestión de Calendarios:** Creación, edición y eliminación de múltiples calendarios personales y compartidos.
-*   **Eventos Ricos:** Soporte para eventos con ubicación geográfica (mapas interactivos), imágenes de portada y archivos adjuntos.
-*   **Colaboración:** Sistema de comentarios en tiempo real para discutir detalles de los eventos.
-*   **Integraciones Externas:**
-    *   **Google OAuth:** Autenticación segura y gestión de sesiones.
-    *   **Cloudinary:** Alojamiento optimizado de imágenes.
-    *   **Dropbox:** Almacenamiento de documentos y archivos adjuntos.
-    *   **OpenStreetMap:** Visualización de ubicaciones mediante mapas interactivos.
-*   **Importación:** Capacidad para importar calendarios externos en formato `.ics` (Google Calendar, Outlook, etc.).
-*   **Notificaciones:** Sistema de alertas para recordatorios de eventos.
+El proyecto está organizado en **microservicios** (Node.js/Express) detrás de un **API Gateway**, y un cliente web SPA en React.
 
-## 🏗️ Arquitectura del Sistema
+## Funcionalidad
 
-El proyecto sigue una arquitectura de microservicios contenerizada con Docker:
+- Calendarios: crear/editar/eliminar, búsqueda por criterios y relaciones jerárquicas (subcalendarios).
+- Eventos: crear/editar/eliminar, con ubicación y soporte de mapa.
+- Comentarios en eventos.
+- Notificaciones asociadas a comentarios.
+- Importación de calendarios externos en formato **ICS**.
+- Autenticación con **OAuth 2.0 (Google)**.
 
-*   **Frontend (Webapp):** SPA desarrollada en React + Vite + Material UI.
-*   **API Gateway:** Punto de entrada único que enruta las peticiones a los servicios correspondientes.
-*   **Microservicios:**
-    *   `calendar-service`: Gestión del ciclo de vida de los calendarios.
-    *   `event-service`: Lógica de eventos, ubicaciones y fechas.
-    *   `comment-service`: Gestión de hilos de comentarios.
-    *   `notification-service`: Motor de envío de notificaciones.
-*   **Base de Datos:** MongoDB (instancia compartida o por servicio según configuración).
+## Arquitectura (alto nivel)
 
-## 🛠️ Tecnologías Utilizadas
+- **Webapp** (React + Vite) → consume la API vía Gateway.
+- **API Gateway** (Express) → autentica (login/logout), emite JWT de la aplicación y hace de proxy hacia los microservicios.
+- **Microservicios**:
+  - `calendar-service`: calendarios, subcalendarios, importación/sincronización ICS y preferencias.
+  - `event-service`: CRUD de eventos y consultas.
+  - `comment-service`: CRUD de comentarios (el borrado está deshabilitado).
+  - `notification-service`: creación/listado de notificaciones.
 
-*   **Backend:** Node.js, Express.
-*   **Frontend:** React, Leaflet (Mapas), Axios.
-*   **Infraestructura:** Docker, Docker Compose.
-*   **Autenticación:** Google OAuth 2.0.
+## Tecnologías
 
-## 📦 Instalación y Despliegue
+- **Frontend**: React + Vite, Axios, React Big Calendar, date-fns, Leaflet/React-Leaflet.
+- **Backend**: Node.js, Express.
+- **Persistencia**: MongoDB (vía Mongoose en los servicios).
+- **Auth**: Google OAuth (cliente) + JWT propio (gateway).
+- **Infraestructura local**: Docker + Docker Compose.
 
-1.  **Clonar el repositorio:**
-    ```bash
-    git clone https://github.com/alvarogall/kalendas.git
-    cd kalendas
-    ```
+## Estructura del repositorio
 
-2.  **Configurar variables de entorno:**
-    Asegúrate de tener los archivos `.env` necesarios en la carpeta `deployment/config/env/` o `deployment/env/` según tu configuración de Docker Compose.
+- `services/` → microservicios + gateway
+- `webapp/` → cliente React
+- `deployment/` → `docker-compose.yml` y variables de entorno por servicio
 
-3.  **Desplegar con Docker Compose:**
-    ```bash
-    cd deployment
-    docker compose up --build -d
-    ```
+## Arranque en local (Docker)
 
-4.  **Acceder a la aplicación:**
-    Abre tu navegador en `http://localhost:5173` (o el puerto configurado para el frontend).
+Requisitos:
+
+- Docker
+- docker-compose (legacy) o Docker Compose plugin
+
+1) Variables de entorno
+
+Los contenedores cargan variables desde `deployment/config/env/*.env`.
+
+2) Levantar el stack
+
+```bash
+cd deployment
+docker-compose up --build -d
+```
+
+Si tu usuario no tiene permisos sobre Docker, usa `sudo`:
+
+```bash
+cd deployment
+sudo docker-compose up --build -d
+```
+
+3) URLs locales
+
+- Web: http://localhost:5173
+- API Gateway: http://localhost:8080
+- Swagger UI (docs del gateway): http://localhost:8080/docs (si está expuesto) o `services/api-gateway/docs/swagger-ui.html`
+
+## Autenticación y token (requisito Cloud)
+
+El login se realiza con Google OAuth desde el cliente. El gateway emite un JWT para el resto de llamadas.
+
+- `POST /api/auth/login` (recibe el ID token de Google)
+- `POST /api/auth/logout`
+
+Para facilitar pruebas en Swagger/Postman, el gateway expone:
+
+- `GET /api/token` → devuelve `{ "token": "..." }` si existe sesión.
+
+Ejemplo de uso:
+
+```bash
+TOKEN="<token>"
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/calendars
+```
+
+## Documentación de la API
+
+La especificación OpenAPI del gateway está en:
+
+- `services/api-gateway/docs/openapi.yaml`
+
+El Swagger UI está en:
+
+- `services/api-gateway/docs/swagger-ui.html`
+
+## Notas de desarrollo
+
+- El gateway aplica CORS y reescribe respuestas de CORS para que el navegador pueda trabajar con credenciales.
+- Los servicios se comunican entre sí usando las URLs internas del `docker-compose` (por ejemplo `http://calendar-service:3001`).
+
+## Verificación rápida (smoke test)
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/api/health
+curl http://localhost:8080/api/version
+```

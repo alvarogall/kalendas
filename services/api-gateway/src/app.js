@@ -167,22 +167,41 @@ const applyGatewayCorsToProxyResponse = (proxyRes, req) => {
   proxyRes.headers['access-control-allow-credentials'] = 'true'
   // Help caches behave correctly with per-origin responses
   const vary = proxyRes.headers.vary
-  proxyRes.headers.vary = vary ? `${vary}, Origin` : 'Origin'
+  if (!vary) {
+    proxyRes.headers.vary = 'Origin'
+  } else if (!/(^|,)\s*Origin\s*(,|$)/i.test(String(vary))) {
+    proxyRes.headers.vary = `${vary}, Origin`
+  }
 }
 
-const makeProxy = (target, apiPrefix) => createProxyMiddleware({
-  target,
-  changeOrigin: true,
-  onProxyReq: addAuthHeader,
-  onProxyRes: applyGatewayCorsToProxyResponse,
-  // IMPORTANT: Express strips the mount path from req.url for mounted middleware.
-  // We need to re-prepend the prefix so downstream services (which mount /api/...) receive correct paths.
-  pathRewrite: (path) => `${apiPrefix}${path}`,
-  onError: (err, req, res) => {
+const makeProxy = (target, apiPrefix) => {
+  const onError = (err, _req, res) => {
     logger.error('Proxy error:', err.message)
     if (!res.headersSent) res.status(502).json({ error: 'Bad gateway', service: target })
   }
-})
+
+  // http-proxy-middleware v3 uses `on: { proxyReq, proxyRes, error }`.
+  // Keep legacy `onProxyReq/onProxyRes/onError` too for compatibility.
+  return createProxyMiddleware({
+    target,
+    changeOrigin: true,
+    // Fail fast when an upstream is cold-starting or stuck, so the gateway can
+    // return a controlled 502 (with CORS) instead of relying on platform timeouts.
+    timeout: 20000,
+    proxyTimeout: 15000,
+    // IMPORTANT: Express strips the mount path from req.url for mounted middleware.
+    // We need to re-prepend the prefix so downstream services (which mount /api/...) receive correct paths.
+    pathRewrite: (path) => `${apiPrefix}${path}`,
+    on: {
+      proxyReq: (proxyReq, req) => addAuthHeader(proxyReq, req),
+      proxyRes: (proxyRes, req) => applyGatewayCorsToProxyResponse(proxyRes, req),
+      error: (err, req, res) => onError(err, req, res)
+    },
+    onProxyReq: addAuthHeader,
+    onProxyRes: applyGatewayCorsToProxyResponse,
+    onError
+  })
+}
 
 const dropboxRouter = require('./routes/dropbox')
 
