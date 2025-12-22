@@ -32,15 +32,13 @@ const getAllowedOrigins = () => {
 }
 
 app.use(cors({
-  origin: (origin, cb) => {
-    // allow non-browser / same-origin requests with no Origin header
-    if (!origin) return cb(null, true)
-    const allowed = getAllowedOrigins()
-    const o = normalizeOrigin(origin)
-    if (allowed.includes(o)) return cb(null, origin)
-    return cb(new Error('Not allowed by CORS'))
-  },
-  credentials: true
+  origin: [
+    'http://localhost:5173',
+    'https://kalendas-frontend.onrender.com'
+  ],
+  credentials: true, // Permitir cookies/tokens
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
 // app.use(express.json()) // Removed global json parsing to avoid consuming proxy streams
