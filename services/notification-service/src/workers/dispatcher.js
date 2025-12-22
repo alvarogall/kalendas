@@ -11,13 +11,27 @@ const computeBackoffMs = (attemptsSoFar) => {
     return Math.min(raw, config.EMAIL_BACKOFF_MAX_MS)
 }
 
+const formatErrorForDbAndLogs = (err) => {
+    if (!err) return 'Unknown error'
+    const message = err.message ? String(err.message) : String(err)
+    const parts = [message]
+    if (err.code) parts.push(`code=${err.code}`)
+    if (err.command) parts.push(`cmd=${err.command}`)
+    if (err.responseCode) parts.push(`responseCode=${err.responseCode}`)
+    return parts.join(' | ')
+}
+
 const cycle = async () => {
     const now = new Date()
     const maxAttempts = config.MAX_EMAIL_ATTEMPTS
 
     const dueNotifications = await Notification.find({
         channel: 'email',
-        nextAttemptAt: { $lte: now },
+        // Backward-compat: notifications created before this field existed.
+        $or: [
+            { nextAttemptAt: { $exists: false } },
+            { nextAttemptAt: { $lte: now } }
+        ],
         $or: [
             { status: 'pending', attempts: { $lt: maxAttempts } },
             { status: 'error', attempts: { $lt: maxAttempts } }
@@ -50,7 +64,7 @@ const cycle = async () => {
             const nextAttempts = notification.attempts + 1
             notification.attempts = nextAttempts
 
-            const message = error && error.message ? error.message : String(error)
+            const message = formatErrorForDbAndLogs(error)
             notification.lastError = message
 
             // If we still have attempts left, keep it pending with backoff.
