@@ -11,6 +11,24 @@ calendarsRouter.post('/import', async (request, response) => {
   if (!request.user) return response.status(401).json({ error: 'Autenticación requerida' })
 
   try {
+    if (!url || !String(url).trim()) {
+      return response.status(400).json({ error: 'url es requerida' })
+    }
+    if (!config.EVENT_SERVICE_URL) {
+      return response.status(500).json({ error: 'Service misconfigured', detail: 'EVENT_SERVICE_URL not set' })
+    }
+
+    // Permite importar solo desde URLs válidas
+    let parsedUrl
+    try {
+      parsedUrl = new URL(String(url).trim())
+    } catch (_err) {
+      return response.status(400).json({ error: 'url inválida' })
+    }
+    if (!/^https?:$/.test(parsedUrl.protocol)) {
+      return response.status(400).json({ error: 'url inválida' })
+    }
+
     const webRes = await axios.get(url)
     const data = ical.sync.parseICS(webRes.data)
     
@@ -20,27 +38,209 @@ calendarsRouter.post('/import', async (request, response) => {
       organizerEmail: request.user.email,
       description: `Importado desde ${url}`,
       startDate: new Date(),
-      keywords: ['importado']
+      keywords: ['importado'],
+      sourceUrl: url,
+      lastSyncedAt: new Date()
     })
     const savedCalendar = await calendar.save()
 
-    let eventsCount = 0
+    // Extrae eventos y los crea en event-service.
+    // Límite defensivo para evitar imports enormes.
+    const authHeader = request.get('authorization')
+    const extracted = []
     for (const k in data) {
-        if (data[k].type === 'VEVENT') eventsCount++
+      const it = data[k]
+      if (!it || it.type !== 'VEVENT') continue
+      extracted.push(it)
+    }
+
+    const eventsFound = extracted.length
+    const maxEvents = 300
+    const slice = extracted.slice(0, maxEvents)
+
+    const mapEvent = (it) => {
+      const start = it.start ? new Date(it.start) : null
+      if (!start || isNaN(start)) return null
+      let end = it.end ? new Date(it.end) : null
+      if (!end || isNaN(end)) end = new Date(start.getTime() + 60 * 60 * 1000)
+      return {
+        title: String(it.summary || 'Evento importado'),
+        description: it.description ? String(it.description) : '',
+        location: it.location ? String(it.location) : 'Importado',
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        calendar: String(savedCalendar._id)
+      }
+    }
+
+    const payloads = slice.map(mapEvent).filter(Boolean)
+
+    const createOne = async (payload) => {
+      const res = await fetch(`${config.EVENT_SERVICE_URL}/api/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authHeader ? { Authorization: authHeader } : {})
+        },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(`event-service error (${res.status}): ${txt}`)
+      }
+      return res.json()
+    }
+
+    // Ejecuta en batches para no saturar el servicio
+    const batchSize = 10
+    let createdCount = 0
+      let failedCount = 0
+      const sampleErrors = []
+    for (let i = 0; i < payloads.length; i += batchSize) {
+      // eslint-disable-next-line no-await-in-loop
+      const batch = payloads.slice(i, i + batchSize)
+      const results = await Promise.allSettled(batch.map(createOne))
+      createdCount += results.filter(r => r.status === 'fulfilled').length
+
+        const rejected = results.filter(r => r.status === 'rejected')
+        failedCount += rejected.length
+        for (const r of rejected) {
+          if (sampleErrors.length >= 3) break
+          const msg = String(r.reason?.message || r.reason || 'unknown error')
+          sampleErrors.push(msg)
+        }
     }
 
     response.status(201).json({
-      message: 'Calendario importado. Los eventos se han procesado.',
+      message: 'Calendario importado.',
       calendar: savedCalendar,
-      eventsFound: eventsCount
+      eventsFound,
+      eventsCreated: createdCount,
+        eventsFailed: failedCount,
+        sampleErrors,
+      eventsTruncated: eventsFound > maxEvents
     })
   } catch (error) {
     response.status(500).json({ error: 'Error importando: ' + error.message })
   }
 })
 
+calendarsRouter.post('/:id/sync', async (request, response) => {
+  if (!request.user) return response.status(401).json({ error: 'Autenticación requerida' })
+
+  try {
+    const calendar = await Calendar.findById(request.params.id)
+    if (!calendar) return response.status(404).json({ error: 'Calendario no encontrado' })
+
+    if (!calendar.sourceUrl) {
+      return response.status(400).json({ error: 'Este calendario no es importado (no tiene URL fuente)' })
+    }
+
+    const norm = (v) => String(v || '').trim().toLowerCase()
+    const me = norm(request.user.email)
+    const calEmail = norm(calendar.organizerEmail)
+    const calOrganizer = norm(calendar.organizer)
+    const isOwner = Boolean(me) && ((calEmail && calEmail === me) || (!calEmail && calOrganizer && calOrganizer === me))
+    const isAdmin = Boolean(request.user.isAdmin)
+    if (!isOwner && !isAdmin) {
+      return response.status(403).json({ error: 'No tienes permiso para sincronizar este calendario' })
+    }
+
+    // 1. Fetch ICS
+    const webRes = await axios.get(calendar.sourceUrl)
+    const data = ical.sync.parseICS(webRes.data)
+
+    // 2. Delete existing events
+    const authHeader = request.get('authorization')
+    const delRes = await fetch(`${config.EVENT_SERVICE_URL}/api/events?calendarId=${calendar._id}`, {
+      method: 'DELETE',
+      headers: { ...(authHeader ? { Authorization: authHeader } : {}) }
+    })
+    if (!delRes.ok) {
+      throw new Error('Error limpiando eventos antiguos')
+    }
+
+    // 3. Create new events
+    const extracted = []
+    for (const k in data) {
+      const it = data[k]
+      if (!it || it.type !== 'VEVENT') continue
+      extracted.push(it)
+    }
+
+    const maxEvents = 300
+    const slice = extracted.slice(0, maxEvents)
+
+    const mapEvent = (it) => {
+      const start = it.start ? new Date(it.start) : null
+      if (!start || isNaN(start)) return null
+      let end = it.end ? new Date(it.end) : null
+      if (!end || isNaN(end)) end = new Date(start.getTime() + 60 * 60 * 1000)
+      return {
+        title: String(it.summary || 'Evento importado'),
+        description: it.description ? String(it.description) : '',
+        location: it.location ? String(it.location) : 'Importado',
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        calendar: String(calendar._id)
+      }
+    }
+
+    const payloads = slice.map(mapEvent).filter(Boolean)
+
+    const createOne = async (payload) => {
+      const res = await fetch(`${config.EVENT_SERVICE_URL}/api/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authHeader ? { Authorization: authHeader } : {})
+        },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(`event-service error (${res.status}): ${txt}`)
+      }
+      return res.json()
+    }
+
+    const batchSize = 10
+    let createdCount = 0
+      let failedCount = 0
+      const sampleErrors = []
+    for (let i = 0; i < payloads.length; i += batchSize) {
+      const batch = payloads.slice(i, i + batchSize)
+      const results = await Promise.allSettled(batch.map(createOne))
+      createdCount += results.filter(r => r.status === 'fulfilled').length
+
+        const rejected = results.filter(r => r.status === 'rejected')
+        failedCount += rejected.length
+        for (const r of rejected) {
+          if (sampleErrors.length >= 3) break
+          const msg = String(r.reason?.message || r.reason || 'unknown error')
+          sampleErrors.push(msg)
+        }
+    }
+
+    // 4. Update timestamp
+    calendar.lastSyncedAt = new Date()
+    await calendar.save()
+
+    response.json({
+      message: 'Sincronización completada',
+      eventsCreated: createdCount,
+        eventsFailed: failedCount,
+        sampleErrors,
+      lastSyncedAt: calendar.lastSyncedAt
+    })
+
+  } catch (error) {
+    response.status(500).json({ error: 'Error sincronizando: ' + error.message })
+  }
+})
+
 calendarsRouter.get('/', async (request, response) => {
-  const { title, organizer, startDate, endDate, hasEventsByOrganizer, commentedBy } = request.query
+  const { title, organizer, startDate, endDate, hasEventsByOrganizer, commentedBy, includeAll } = request.query
   const filter = {}
   if (title && title.trim()) {
     filter.title = { $regex: title.trim(), $options: 'i' }
@@ -102,7 +302,11 @@ calendarsRouter.get('/', async (request, response) => {
     filter._id = { $in: Array.from(restrictIds) }
   }
 
-  filter.parentId = null
+  // Backwards compatible: by default we returned only root calendars.
+  // For the UI use-case (selecting any subcalendar as parent), allow fetching all calendars.
+  if (String(includeAll) !== 'true') {
+    filter.parentId = null
+  }
 
   const calendars = await Calendar.find(filter)
     .populate('subCalendars')
@@ -139,21 +343,52 @@ calendarsRouter.get('/:id', async (request, response) => {
 })
 
 calendarsRouter.put('/:id', async (request, response) => {
+  const calendar = await Calendar.findById(request.params.id)
+  if (!calendar) return response.status(404).json({ error: 'Calendar not found' })
+
+  // Check ownership or admin
+  const user = request.user
+  if (!user) return response.status(401).json({ error: 'Autenticación requerida' })
+  
+  const norm = (v) => String(v || '').trim().toLowerCase()
+  const me = norm(user.email)
+  const calEmail = norm(calendar.organizerEmail)
+  const calOrganizer = norm(calendar.organizer)
+  const isOwner = Boolean(me) && ((calEmail && calEmail === me) || (!calEmail && calOrganizer && calOrganizer === me))
+  const isAdmin = Boolean(user.isAdmin)
+
+  if (!isOwner && !isAdmin) {
+    return response.status(403).json({ error: 'No tienes permiso para editar este calendario' })
+  }
+
   const updated = await Calendar.findByIdAndUpdate(
     request.params.id,
     request.body,
     { new: true, runValidators: true, context: 'query' }
   )
 
-  if (updated) {
-    response.json(updated)
-  } else {
-    response.status(404).json({ error: 'Calendar not found' })
-  }
+  response.json(updated)
 })
 
 calendarsRouter.delete('/:id', async (request, response) => {
   const calendarId = request.params.id
+  const calendar = await Calendar.findById(calendarId)
+  if (!calendar) return response.status(404).json({ error: 'Calendar not found' })
+
+  // Check ownership or admin
+  const user = request.user
+  if (!user) return response.status(401).json({ error: 'Autenticación requerida' })
+  
+  const norm = (v) => String(v || '').trim().toLowerCase()
+  const me = norm(user.email)
+  const calEmail = norm(calendar.organizerEmail)
+  const calOrganizer = norm(calendar.organizer)
+  const isOwner = Boolean(me) && ((calEmail && calEmail === me) || (!calEmail && calOrganizer && calOrganizer === me))
+  const isAdmin = Boolean(user.isAdmin)
+
+  if (!isOwner && !isAdmin) {
+    return response.status(403).json({ error: 'No tienes permiso para eliminar este calendario' })
+  }
 
   if (config.EVENT_SERVICE_URL) {
     try {

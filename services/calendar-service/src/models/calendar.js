@@ -42,7 +42,15 @@ const calendarSchema = new mongoose.Schema({
   subCalendars: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Calendar'
-  }]
+  }],
+  sourceUrl: {
+    type: String,
+    default: null
+  },
+  lastSyncedAt: {
+    type: Date,
+    default: null
+  }
 }, {
   timestamps: true
 });

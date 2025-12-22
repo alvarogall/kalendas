@@ -100,12 +100,7 @@ commentsRouter.put('/:id', async (request, response) => {
 })
 
 commentsRouter.delete('/:id', async (request, response) => {
-    const result = await Comment.findByIdAndDelete(request.params.id)
-    if (result) {
-        response.status(204).end()
-    } else {
-        response.status(404).json({ error: 'Comment not found' })
-    }
+    response.status(405).json({ error: 'Comment deletion is disabled' })
 })
 
 module.exports = commentsRouter

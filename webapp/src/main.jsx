@@ -1,16 +1,18 @@
+import React from 'react'
 import ReactDOM from 'react-dom/client'
-import './index.css'
-import App from './App'
-import { googleClientId } from './services/config'
-import { apiBaseUrl } from './services/config'
-
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import App from './App.jsx'
+import './index.css'
+import axios from 'axios'
 
-console.info('[Kalendas] apiBaseUrl =', apiBaseUrl)
-console.info('[Kalendas] googleClientId =', googleClientId)
+axios.defaults.withCredentials = true; 
+
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "TU_CLIENT_ID_DE_GOOGLE";
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <GoogleOAuthProvider clientId={googleClientId}>
-    <App />
-  </GoogleOAuthProvider>
+  <GoogleOAuthProvider clientId={clientId}>
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  </GoogleOAuthProvider>,
 )

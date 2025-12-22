@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
-import { Box, TextField, Button, Collapse, Typography, IconButton } from '@mui/material';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
+import { Filter, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Input } from './ui/Input';
+import { Button } from './ui/Button';
 
 const AdvancedSearch = ({ onSearch }) => {
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [scope, setScope] = useState('both');
   const [keywords, setKeywords] = useState('');
   const [organizer, setOrganizer] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   const handleSearch = () => {
-    onSearch({ keywords, organizer, startDate, endDate });
+    onSearch({ scope, keywords, organizer, startDate, endDate });
   };
 
   const handleClear = () => {
+    setScope('both');
     setKeywords('');
     setOrganizer('');
     setStartDate('');
@@ -24,56 +25,74 @@ const AdvancedSearch = ({ onSearch }) => {
   };
 
   return (
-    <Box sx={{ mb: 2, p: 1, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="subtitle2" color="text.secondary">Búsqueda Avanzada</Typography>
-        <IconButton onClick={() => setOpen(!open)} size="small">
-          {open ? <ExpandLess /> : <ExpandMore />}
-        </IconButton>
-      </Box>
-      <Collapse in={open}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-          <TextField
-            label="Nombre del calendario"
-            size="small"
-            value={keywords} // Reusing keywords state for title search as per App.jsx logic
+    <div className="mb-2 bg-white border border-slate-200 rounded-xl overflow-hidden transition-all">
+      <div 
+        className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <Filter size={16} className="text-blue-500"/>
+            Búsqueda Avanzada
+        </div>
+        <button className="text-slate-400">
+          {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="p-3 pt-0 flex flex-col gap-3 animate-in slide-in-from-top-2">
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1.5 flex gap-1">
+              Buscar en
+            </label>
+            <select
+              className="w-full h-10 rounded-lg border bg-white px-3 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all border-slate-200"
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+            >
+              <option value="both">Calendarios y eventos</option>
+              <option value="calendars">Solo calendarios</option>
+              <option value="events">Solo eventos</option>
+            </select>
+          </div>
+          <Input
+            label="Palabra clave"
+            placeholder="Ej: Proyecto X"
+            value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
-            fullWidth
           />
-          <TextField
+          <Input
             label="Organizador"
-            size="small"
+            placeholder="Ej: email / nombre"
             value={organizer}
             onChange={(e) => setOrganizer(e.target.value)}
-            fullWidth
           />
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
+          <div className="grid grid-cols-2 gap-2">
+            <Input
               label="Desde"
               type="date"
-              size="small"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
             />
-            <TextField
+            <Input
               label="Hasta"
               type="date"
-              size="small"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
             />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Button onClick={handleClear} size="small">Limpiar</Button>
-            <Button variant="contained" onClick={handleSearch} size="small">Buscar</Button>
-          </Box>
-        </Box>
-      </Collapse>
-    </Box>
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-50">
+            <Button variant="ghost" size="sm" onClick={handleClear} className="text-xs h-8">
+                <X size={14} className="mr-1"/> Limpiar
+            </Button>
+            <Button size="sm" onClick={handleSearch} className="text-xs h-8">
+                Buscar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

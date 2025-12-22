@@ -52,10 +52,6 @@ jspm_packages/
 .DS_Store
 Thumbs.db
 
-
-
-
-
 # Coverage reports
 coverage/
 **/coverage/

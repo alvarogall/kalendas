@@ -3,8 +3,8 @@ import { apiBaseUrl } from './config'
 
 const baseUrl = `${apiBaseUrl}/calendars`
 
-const getAll = (params) => {
-  const request = axios.get(baseUrl, { params })
+const getAll = (params = {}) => {
+  const request = axios.get(baseUrl, { params: { includeAll: true, ...params } })
   return request.then(response => response.data)
 }
 
@@ -23,4 +23,15 @@ const remove = id => {
   return request.then(response => response.data)
 }
 
-export default { getAll, create, update, remove }
+const importCalendar = ({ url, provider = 'Google Calendar' }) => {
+  const payload = { url, provider }
+  const request = axios.post(`${baseUrl}/import`, payload)
+  return request.then(response => response.data)
+}
+
+const sync = (id) => {
+  const request = axios.post(`${baseUrl}/${id}/sync`)
+  return request.then(response => response.data)
+}
+
+export default { getAll, create, update, remove, importCalendar, sync }

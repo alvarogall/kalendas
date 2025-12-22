@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Box, Typography, TextField, Button } from '@mui/material'
+import { Button } from './ui/Button'
+import { Input } from './ui/Input'
+import { MapPin, CornerDownLeft } from 'lucide-react'
 
-// Fix leaflet default icon URLs when using CDN or bundlers
+// Fix leaflet default icon URLs
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -16,7 +18,7 @@ function MapClickHandler ({ onMapClick }) {
   useMapEvents({
     click (e) {
       const { lat, lng } = e.latlng
-      if (typeof onMapClick === 'function') onMapClick([lng, lat]) // GeoJSON order
+      if (typeof onMapClick === 'function') onMapClick([lng, lat]) 
     }
   })
   return null
@@ -42,22 +44,26 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange, onLocationChange }) =
       if (mapInstance && typeof mapInstance.setView === 'function') {
         try {
           mapInstance.setView([cLat, cLng])
-          // invalidateSize to ensure proper rendering when inside dialogs
           setTimeout(() => mapInstance.invalidateSize(), 150)
-        } catch (err) {
-          // ignore
-        }
+        } catch (err) {}
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coordinates])
 
-  // Ensure map resizes when instance becomes available
   useEffect(() => {
     if (mapInstance && typeof mapInstance.invalidateSize === 'function') {
-      setTimeout(() => mapInstance.invalidateSize(), 150)
+      setTimeout(() => {
+        try {
+          mapInstance.invalidateSize()
+          if (coordinates && coordinates.coordinates && coordinates.coordinates.length === 2 && typeof mapInstance.setView === 'function') {
+            const [cLng, cLat] = coordinates.coordinates
+            mapInstance.setView([cLat, cLng])
+          }
+        } catch (err) {}
+      }, 150)
     }
-  }, [mapInstance])
+  }, [mapInstance, coordinates])
 
   const handleMapClick = (newCoordinates) => {
     const [cLng, cLat] = newCoordinates
@@ -67,7 +73,7 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange, onLocationChange }) =
     if (typeof onCoordinatesChange === 'function') {
       onCoordinatesChange({ type: 'Point', coordinates: [cLng, cLat] })
     }
-    // Try reverse geocoding to populate the textual location field
+    // Reverse geocoding attempt
     if (typeof onLocationChange === 'function') {
       try {
         fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(cLat)}&lon=${encodeURIComponent(cLng)}`)
@@ -75,29 +81,21 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange, onLocationChange }) =
           .then(data => {
             if (data && data.display_name) onLocationChange({ target: { value: data.display_name } })
           })
-          .catch(() => {
-            // ignore reverse geocode failures
-          })
-      } catch (err) {
-        // ignore
-      }
+          .catch(() => {})
+      } catch (err) {}
     }
   }
 
   const handleManualInput = () => {
     const parts = manualInput.trim().split(',')
     if (parts.length !== 2) {
-      alert('Formato incorrecto. Usa: latitud,longitud (ej: 40.4168,-3.1836)')
+      alert('Formato incorrecto. Usa: latitud,longitud')
       return
     }
     const inputLat = parseFloat(parts[0].trim())
     const inputLng = parseFloat(parts[1].trim())
-    if (
-      isNaN(inputLat) || isNaN(inputLng) ||
-      inputLat < -90 || inputLat > 90 ||
-      inputLng < -180 || inputLng > 180
-    ) {
-      alert('Coordenadas inválidas. Rango: latitud [-90, 90], longitud [-180, 180]')
+    if (isNaN(inputLat) || isNaN(inputLng)) {
+      alert('Coordenadas inválidas')
       return
     }
     setLat(inputLat)
@@ -106,42 +104,26 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange, onLocationChange }) =
     if (typeof onCoordinatesChange === 'function') {
       onCoordinatesChange({ type: 'Point', coordinates: [inputLng, inputLat] })
     }
-    // Reverse geocode manual coordinates to fill location
-    if (typeof onLocationChange === 'function') {
-      try {
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(inputLat)}&lon=${encodeURIComponent(inputLng)}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data && data.display_name) onLocationChange({ target: { value: data.display_name } })
-          })
-          .catch(() => {})
-      } catch (err) {}
-    }
     setManualInput('')
-  }
-
-  const handleClear = () => {
-    setHasMarker(false)
-    if (typeof onCoordinatesChange === 'function') onCoordinatesChange(null)
-    setManualInput('')
-    if (typeof onLocationChange === 'function') onLocationChange({ target: { value: '' } })
   }
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="subtitle1">Coordenadas del Evento (Opcional)</Typography>
-      <Typography variant="caption" display="block" sx={{ mb: 1, color: 'text.secondary' }}>
-        Haz clic en el mapa para seleccionar una ubicación, o ingresa las coordenadas manualmente.
-      </Typography>
+    <div className="mt-4">
+      <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
+        <MapPin size={16} /> Coordenadas (Opcional)
+      </h4>
+      <p className="text-xs text-slate-500 mb-2">
+        Haz clic en el mapa para marcar la ubicación exacta.
+      </p>
 
-      <Box sx={{ mb: 2, border: '1px solid #ccc', borderRadius: 1, overflow: 'hidden', height: 300 }}>
+      <div className="mb-3 border border-slate-200 rounded-xl overflow-hidden h-[300px] shadow-sm relative z-0">
         <MapContainer
           center={[lat, lng]}
           zoom={13}
           style={{ width: '100%', height: '100%' }}
-          whenCreated={(map) => { setMapInstance(map); setTimeout(() => map.invalidateSize(), 150) }}
+          ref={setMapInstance}
         >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
           {hasMarker && (
             <Marker position={[lat, lng]}>
               <Popup>Lat: {lat.toFixed(4)}, Lng: {lng.toFixed(4)}</Popup>
@@ -149,31 +131,29 @@ const CoordinateMap = ({ coordinates, onCoordinatesChange, onLocationChange }) =
           )}
           <MapClickHandler onMapClick={handleMapClick} />
         </MapContainer>
-      </Box>
+      </div>
 
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <TextField
-          label="Coordenadas (lat,lng)"
-          placeholder="40.4168,-3.1836"
-          variant="outlined"
-          size="small"
-          fullWidth
+      <div className="flex gap-2 mb-3">
+        <Input
+          placeholder="Manual: 40.4168,-3.1836"
           value={manualInput}
           onChange={(e) => setManualInput(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleManualInput()}
+          className="flex-1"
         />
-        <Button variant="outlined" size="small" onClick={handleManualInput} sx={{ minWidth: 80 }}>
-          Ingresar
+        <Button variant="secondary" onClick={handleManualInput} className="px-3">
+          <CornerDownLeft size={16} />
         </Button>
-      </Box>
+      </div>
 
       {hasMarker && (
-        <Box sx={{ p: 1, bgcolor: 'background.paper', border: '1px solid #ddd', borderRadius: 1, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2">📍 Lat: {lat.toFixed(4)}, Lng: {lng.toFixed(4)}</Typography>
-          <Button variant="text" size="small" color="error" onClick={handleClear}>Limpiar</Button>
-        </Box>
+        <div className="flex items-center justify-between p-2 bg-blue-50 border border-blue-100 rounded-lg">
+          <span className="text-xs font-medium text-blue-700">
+            📍 {lat.toFixed(4)}, {lng.toFixed(4)}
+          </span>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }
 

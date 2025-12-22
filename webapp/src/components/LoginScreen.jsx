@@ -1,53 +1,47 @@
 import React from 'react';
-import { Box, Typography, Paper, Container } from '@mui/material';
 import { GoogleLogin } from '@react-oauth/google';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import { Calendar } from 'lucide-react'; // Cambiado de MUI a Lucide
 
 const LoginScreen = ({ onSuccess, onError }) => {
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper 
-          elevation={3} 
-          sx={{ 
-            p: 4, 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center',
-            width: '100%',
-            borderRadius: 2
-          }}
-        >
-          <Box sx={{ m: 1, bgcolor: 'primary.main', p: 2, borderRadius: '50%' }}>
-            <CalendarTodayIcon sx={{ color: 'white', fontSize: 40 }} />
-          </Box>
-          <Typography component="h1" variant="h4" sx={{ mb: 1, fontWeight: 'bold', color: '#1976d2' }}>
-            Kalendas
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 4, textAlign: 'center' }}>
-            Gestiona tus eventos y calendarios de forma colaborativa
-          </Typography>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-100 text-center">
+        <div className="mx-auto w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200 rotate-3 transform transition-transform hover:rotate-0">
+          <Calendar className="text-white" size={32} />
+        </div>
+        
+        <h1 className="text-3xl font-bold text-slate-800 mb-2 tracking-tight">
+          Kalendas
+        </h1>
+        <p className="text-slate-500 mb-8 leading-relaxed">
+          Tu gestor de calendarios colaborativo. <br/>
+          Simple, rápido y eficiente.
+        </p>
+        
+        <div className="flex flex-col items-center gap-4 transform transition-transform hover:scale-105 duration-200">
+          <GoogleLogin
+            onSuccess={onSuccess}
+            onError={onError}
+            size="large"
+            theme="outline"
+            shape="pill"
+            text="continue_with"
+            width="280"
+          />
           
-          <Box sx={{ mt: 2, mb: 2 }}>
-            <GoogleLogin
-              onSuccess={onSuccess}
-              onError={onError}
-              size="large"
-              theme="filled_blue"
-              shape="pill"
-              text="signin_with"
-            />
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+          <button 
+            onClick={() => onSuccess({ credential: null, isGuest: true })}
+            className="text-sm text-slate-500 hover:text-blue-600 font-medium transition-colors"
+          >
+            Entrar como invitado
+          </button>
+        </div>
+        
+        <p className="mt-8 text-xs text-slate-400">
+          © {new Date().getFullYear()} Kalendas App. All rights reserved.
+        </p>
+      </div>
+    </div>
   );
 };
 

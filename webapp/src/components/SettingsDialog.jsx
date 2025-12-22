@@ -1,79 +1,70 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  Button, 
-  Switch, 
-  FormControlLabel, 
-  Typography, 
-  Divider, 
-  Box 
-} from '@mui/material'
+import { Modal } from './ui/Modal'
+import { Switch } from './ui/Switch'
+import { Button } from './ui/Button'
+import { Mail, Bell } from 'lucide-react'
 
 export default function SettingsDialog({ open, onClose, onApplyToAll }) {
   const [isEmail, setIsEmail] = useState(true)
 
-  // Al abrir el diálogo, leemos la preferencia actual
   useEffect(() => {
     if (open) {
       const pref = localStorage.getItem('notification_preference')
-      // Si es 'in-app' es false, si es 'email' (o null/default) es true
       setIsEmail(pref !== 'in-app')
     }
   }, [open])
 
-  // Al tocar el switch, guardamos inmediatamente en localStorage
-  const handleChange = (e) => {
-    const val = e.target.checked
-    setIsEmail(val)
-    localStorage.setItem('notification_preference', val ? 'email' : 'in-app')
+  const handleChange = (checked) => {
+    setIsEmail(checked)
+    localStorage.setItem('notification_preference', checked ? 'email' : 'in-app')
   }
 
+  const Footer = (
+    <div className="w-full flex justify-end">
+        <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+    </div>
+  )
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Configuración</DialogTitle>
-      <DialogContent>
-        {/* SECCIÓN 1: El Interruptor General */}
-        <FormControlLabel
-          control={<Switch checked={isEmail} onChange={handleChange} />}
-          label="Recibir notificaciones por Email"
-          sx={{ mt: 1 }}
-        />
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-          {isEmail 
-            ? 'Te enviaremos un correo cuando alguien comente en tus eventos.' 
-            : 'Las notificaciones aparecerán solo dentro de la aplicación (campana).'}
-        </Typography>
-
-        {/* SECCIÓN 2: Botón para actualizar calendarios antiguos */}
-        <Divider sx={{ my: 2 }} />
+    <Modal open={open} isOpen={open} onClose={onClose} title="Configuración" footer={Footer}>
+      <div className="flex flex-col gap-6">
         
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666' }}>
-                ACCIONES GLOBALES
-            </Typography>
-            
-            <Button 
-                variant="outlined" 
-                size="small" 
-                color="warning"
-                onClick={onApplyToAll}
-                sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
-            >
-                Aplicar "{isEmail ? 'Email' : 'App'}" a todos mis calendarios
-            </Button>
-            
-            <Typography variant="caption" color="text.secondary">
-                Usa esto si quieres actualizar tus calendarios antiguos con la preferencia seleccionada arriba.
-            </Typography>
-        </Box>
+        {/* Preferencia de Notificación */}
+        <div className="flex items-start justify-between gap-4">
+            <div>
+                <h4 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                    {isEmail ? <Mail size={16}/> : <Bell size={16}/>}
+                    Método de notificación
+                </h4>
+                <p className="text-sm text-slate-500 mt-1">
+                    {isEmail 
+                        ? 'Recibirás un correo electrónico cuando haya cambios.' 
+                        : 'Solo verás avisos dentro de la aplicación.'}
+                </p>
+            </div>
+            <Switch checked={isEmail} onChange={handleChange} />
+        </div>
 
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cerrar</Button>
-      </DialogActions>
-    </Dialog>
+        <div className="h-px bg-slate-100 my-2"></div>
+
+        {/* Acciones Globales */}
+        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+            <h5 className="text-xs font-bold text-orange-800 uppercase tracking-wide mb-2">
+                Zona de Peligro / Global
+            </h5>
+            <p className="text-xs text-orange-600 mb-3">
+                Si cambias la preferencia arriba, solo afecta a los nuevos calendarios. Usa esto para actualizar los viejos.
+            </p>
+            <Button 
+                variant="secondary" 
+                className="w-full justify-start text-xs h-8 bg-white border-orange-200 text-orange-700 hover:bg-orange-100"
+                onClick={onApplyToAll}
+            >
+                Aplicar "{isEmail ? 'Email' : 'App'}" a todo
+            </Button>
+        </div>
+
+      </div>
+    </Modal>
   )
 }

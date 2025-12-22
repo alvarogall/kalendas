@@ -1,53 +1,39 @@
 import React from 'react';
-import { List, ListItem, ListItemText, IconButton, Typography, Box, Divider } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CircleIcon from '@mui/icons-material/Circle';
+import { Trash2, Circle, CheckCircle } from 'lucide-react';
 
 const NotificationList = ({ notifications, onMarkAsRead, onDelete }) => {
   if (notifications.length === 0) {
-    return <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No notifications</Typography>;
+    return <div className="p-8 text-center text-slate-400 text-sm">No tienes notificaciones pendientes</div>;
   }
 
   return (
-    <List sx={{ width: '100%', minWidth: 300, bgcolor: 'background.paper' }}>
-      {notifications.map((n, index) => (
-        <React.Fragment key={n.id}>
-          <ListItem
-            alignItems="flex-start"
-            secondaryAction={
-              <IconButton edge="end" aria-label="delete" onClick={() => onDelete(n.id)}>
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            }
-          >
-            <IconButton 
-              edge="start" 
-              aria-label="mark as read" 
-              onClick={() => onMarkAsRead(n.id)} 
-              disabled={n.read}
-              sx={{ mt: 0.5, mr: 1 }}
+    <div className="flex flex-col">
+      {notifications.map((n) => (
+        <div key={n.id} className="flex items-start gap-3 p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors">
+            <button 
+                onClick={() => onMarkAsRead(n.id)} 
+                disabled={n.read}
+                className={`mt-1 flex-shrink-0 ${n.read ? 'text-slate-300' : 'text-blue-500 hover:text-blue-600'}`}
             >
-              {n.read ? <CheckCircleIcon color="disabled" fontSize="small" /> : <CircleIcon color="primary" fontSize="small" />}
-            </IconButton>
-            <ListItemText
-              primary={n.message}
-              secondary={
-                <Typography
-                  sx={{ display: 'inline' }}
-                  component="span"
-                  variant="caption"
-                  color="text.secondary"
-                >
-                  {n.channel}
-                </Typography>
-              }
-            />
-          </ListItem>
-          {index < notifications.length - 1 && <Divider variant="inset" component="li" />}
-        </React.Fragment>
+                {n.read ? <CheckCircle size={18} /> : <Circle size={18} fill="currentColor" className="text-blue-500" />}
+            </button>
+            
+            <div className="flex-1 min-w-0">
+                <p className={`text-sm ${n.read ? 'text-slate-500' : 'text-slate-800 font-medium'}`}>
+                    {n.message}
+                </p>
+                <span className="text-xs text-slate-400 mt-0.5 block capitalize">{n.channel}</span>
+            </div>
+
+            <button 
+                onClick={() => onDelete(n.id)}
+                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            >
+                <Trash2 size={16} />
+            </button>
+        </div>
       ))}
-    </List>
+    </div>
   );
 };
 

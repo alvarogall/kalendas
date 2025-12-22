@@ -11,7 +11,9 @@ const Comment = ({ comment, onRemoveComment }) => {
       <strong>{comment.user}:</strong> {comment.text}
       <br/>
       <small>{new Date(comment.createdAt).toLocaleString()}</small>
-      <button onClick={onRemoveComment} style={{ marginLeft: 10, fontSize: '0.8em' }}>delete</button>
+      {typeof onRemoveComment === 'function' && (
+        <button onClick={onRemoveComment} style={{ marginLeft: 10, fontSize: '0.8em' }}>delete</button>
+      )}
     </div>
   )
 }

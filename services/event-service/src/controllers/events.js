@@ -71,7 +71,46 @@ eventsRouter.get('/', async (request, response) => {
 
 eventsRouter.post('/', async (request, response) => {
   try {
-    const event = new Event(request.body)
+    if (!request.user || !request.user.email) {
+      return response.status(401).json({ error: 'No autenticado' })
+    }
+    if (!config.CALENDAR_SERVICE_URL) {
+      return response.status(500).json({ error: 'Service misconfigured', detail: 'CALENDAR_SERVICE_URL not set' })
+    }
+
+    const calendarId = (() => {
+      const raw = request.body?.calendar
+      if (raw && typeof raw === 'object' && raw.id) return String(raw.id)
+      if (raw != null) return String(raw)
+      return ''
+    })()
+
+    if (!calendarId || !/^[0-9a-fA-F]{24}$/.test(calendarId)) {
+      return response.status(400).json({ error: 'calendar inválido' })
+    }
+
+    let calendar
+    try {
+      const cres = await fetch(`${config.CALENDAR_SERVICE_URL}/api/calendars/${encodeURIComponent(calendarId)}`)
+      if (cres.status === 404) return response.status(404).json({ error: 'Calendar not found' })
+      if (!cres.ok) return response.status(502).json({ error: 'upstream calendar-service error' })
+      calendar = await cres.json()
+    } catch (err) {
+      return response.status(502).json({ error: 'upstream calendar-service error', detail: err.message })
+    }
+
+    const owner = String(calendar?.organizerEmail || calendar?.organizer || '')
+    const me = String(request.user.email)
+    const isAdmin = Boolean(request.user.isAdmin)
+
+    if ((!owner || owner !== me) && !isAdmin) {
+      return response.status(403).json({ error: 'No puedes crear eventos en calendarios que no son tuyos' })
+    }
+
+    // Evita spoofing del organizer desde el cliente
+    const eventPayload = { ...request.body, organizer: me, calendar: calendarId }
+
+    const event = new Event(eventPayload)
     const result = await event.save()
     response.status(201).json(result)
   } catch (error) {
@@ -91,25 +130,45 @@ eventsRouter.get('/:id', async (request, response) => {
 })
 
 eventsRouter.put('/:id', async (request, response) => {
+  const event = await Event.findById(request.params.id)
+  if (!event) return response.status(404).json({ error: 'Event not found' })
+
+  // Check ownership or admin
+  const user = request.user
+  if (!user) return response.status(401).json({ error: 'Autenticación requerida' })
+  
+  const isOwner = String(event.organizer) === String(user.email)
+  const isAdmin = Boolean(user.isAdmin)
+
+  if (!isOwner && !isAdmin) {
+    return response.status(403).json({ error: 'No tienes permiso para editar este evento' })
+  }
+
   const result = await Event.findByIdAndUpdate(
     request.params.id,
     request.body,
     { new: true, runValidators: true, context: 'query' }
   )
-  if (result) {
-    response.json(result)
-  } else {
-    response.status(404).json({ error: 'Event not found' })
-  }
+  response.json(result)
 })
 
 eventsRouter.delete('/:id', async (request, response) => {
-  const result = await Event.findByIdAndDelete(request.params.id)
-  if (result) {
-    response.status(204).end()
-  } else {
-    response.status(404).json({ error: 'Event not found' })
+  const event = await Event.findById(request.params.id)
+  if (!event) return response.status(404).json({ error: 'Event not found' })
+
+  // Check ownership or admin
+  const user = request.user
+  if (!user) return response.status(401).json({ error: 'Autenticación requerida' })
+  
+  const isOwner = String(event.organizer) === String(user.email)
+  const isAdmin = Boolean(user.isAdmin)
+
+  if (!isOwner && !isAdmin) {
+    return response.status(403).json({ error: 'No tienes permiso para eliminar este evento' })
   }
+
+  const result = await Event.findByIdAndDelete(request.params.id)
+  response.status(204).end()
 })
 
 eventsRouter.delete('/', async (request, response) => {

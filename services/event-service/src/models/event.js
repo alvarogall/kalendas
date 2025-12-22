@@ -22,7 +22,9 @@ const eventSchema = new mongoose.Schema({
     type: {
       type: String,
       enum: ['Point'],
-      default: 'Point'
+      // Sin default para que el subdocumento no se materialice si no hay coordenadas.
+      // (Las coordenadas son opcionales.)
+      default: undefined
     },
     coordinates: {
       type: [Number], // [longitude, latitude] en orden GeoJSON estándar
@@ -30,7 +32,10 @@ const eventSchema = new mongoose.Schema({
       // coordinates[1] = latitude (norte-sur)
       validate: {
         validator: function(v) {
-          return v && v.length === 2 && 
+          // Coordenadas son opcionales.
+          if (v == null) return true
+          if (Array.isArray(v) && v.length === 0) return true
+          return Array.isArray(v) && v.length === 2 &&
                  v[0] >= -180 && v[0] <= 180 &&  // longitud válida
                  v[1] >= -90 && v[1] <= 90       // latitud válida
         },

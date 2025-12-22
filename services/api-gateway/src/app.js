@@ -14,7 +14,7 @@ app.use(cors({
   credentials: true
 }))
 
-app.use(express.json())
+// app.use(express.json()) // Removed global json parsing to avoid consuming proxy streams
 app.use(cookieParser())
 
 app.use((req, _res, next) => {
@@ -25,7 +25,7 @@ app.use((req, _res, next) => {
 const client = new OAuth2Client(config.GOOGLE_CLIENT_ID)
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_para_desarrollo'
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', express.json(), async (req, res) => {
   const { token } = req.body
   try {
     const ticket = await client.verifyIdToken({
@@ -35,7 +35,8 @@ app.post('/api/auth/login', async (req, res) => {
     const payload = ticket.getPayload()
     const email = payload.email
 
-    const isAdmin = email === 'pruebaparaingweb@gmail.com'
+    const adminEmail = process.env.ADMIN_EMAIL
+    const isAdmin = email === adminEmail
 
     const appToken = jwt.sign(
       { id: payload.sub, email, name: payload.name, isAdmin },
@@ -43,14 +44,29 @@ app.post('/api/auth/login', async (req, res) => {
       { expiresIn: '24h' }
     )
 
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    const isLocalhost = (() => {
+      try {
+        const u = new URL(frontendUrl)
+        return u.hostname === 'localhost' || u.hostname === '127.0.0.1'
+      } catch (_err) {
+        return false
+      }
+    })()
+
+    // Local dev runs on plain HTTP, so Secure cookies would be dropped by the browser.
+    // Also, localhost across different ports is still "same-site", so SameSite=Lax is fine.
+    const cookieOptions = isLocalhost
+      ? { httpOnly: true, secure: false, sameSite: 'lax' }
+      : { httpOnly: true, secure: true, sameSite: 'none' }
+
     res.cookie('auth_token', appToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      ...cookieOptions,
       maxAge: 24 * 60 * 60 * 1000
     })
 
-    res.json({ email, name: payload.name, isAdmin, message: 'Sesión iniciada' })
+    // Also return token so clients can use Authorization header if cookies are not available.
+    res.json({ email, name: payload.name, isAdmin, token: appToken, message: 'Sesión iniciada' })
   } catch (error) {
     logger.error('Auth Error:', error.message)
     res.status(401).json({ error: 'Token inválido' })
@@ -58,7 +74,20 @@ app.post('/api/auth/login', async (req, res) => {
 })
 
 app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('auth_token', { sameSite: 'none', secure: true })
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+  const isLocalhost = (() => {
+    try {
+      const u = new URL(frontendUrl)
+      return u.hostname === 'localhost' || u.hostname === '127.0.0.1'
+    } catch (_err) {
+      return false
+    }
+  })()
+  const cookieOptions = isLocalhost
+    ? { secure: false, sameSite: 'lax' }
+    : { secure: true, sameSite: 'none' }
+
+  res.clearCookie('auth_token', cookieOptions)
   res.status(200).json({ message: 'Logout exitoso' })
 })
 
@@ -69,6 +98,8 @@ app.get('/api/token', (req, res) => {
 })
 
 const addAuthHeader = (proxyReq, req) => {
+  // If client already sent Authorization, keep it.
+  if (req.headers.authorization) return
   if (req.cookies.auth_token) {
     proxyReq.setHeader('Authorization', `Bearer ${req.cookies.auth_token}`)
   }
@@ -131,6 +162,7 @@ const requireTarget = (name, target, apiPrefix) => {
 }
 
 app.use('/api/calendars', requireTarget('CALENDAR_SERVICE_URL', config.CALENDAR_SERVICE_URL, '/api/calendars'))
+app.use('/api/preferences', requireTarget('CALENDAR_SERVICE_URL', config.CALENDAR_SERVICE_URL, '/api/preferences'))
 app.use('/api/events', requireTarget('EVENT_SERVICE_URL', config.EVENT_SERVICE_URL, '/api/events'))
 app.use('/api/comments', requireTarget('COMMENT_SERVICE_URL', config.COMMENT_SERVICE_URL, '/api/comments'))
 app.use('/api/notifications', requireTarget('NOTIFICATION_SERVICE_URL', config.NOTIFICATION_SERVICE_URL, '/api/notifications'))

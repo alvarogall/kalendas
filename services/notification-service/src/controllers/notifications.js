@@ -16,6 +16,8 @@ const requireFields = (obj, fields) => {
 const buildMessage = (commenterName, eventName, calendarTitle) =>
     `${commenterName} ha comentado en "${eventName}" del calendario "${calendarTitle}"`
 
+const normEmail = (v) => String(v || '').trim().toLowerCase()
+
 notificationsRouter.post('/', async (req, res) => {
     const { eventId, calendarId, commenterName } = req.body
     const missing = requireFields(req.body, ['eventId', 'calendarId', 'commenterName'])
@@ -45,6 +47,11 @@ notificationsRouter.post('/', async (req, res) => {
     const eventName = event.title
     const calendarTitle = calendar.title
     const message = buildMessage(commenterName, eventName, calendarTitle)
+
+    // No notificarte a ti mismo si comentas en tu propio calendario.
+    if (normEmail(commenterName) && normEmail(recipientEmail) && normEmail(commenterName) === normEmail(recipientEmail)) {
+        return res.status(200).json({ skipped: true, reason: 'self-notification' })
+    }
 
     const notification = new Notification({
         eventId,

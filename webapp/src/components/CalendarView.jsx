@@ -1,302 +1,113 @@
-import React, { useState } from 'react'
-import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import format from 'date-fns/format'
-import parse from 'date-fns/parse'
-import startOfWeek from 'date-fns/startOfWeek'
-import getDay from 'date-fns/getDay'
-import es from 'date-fns/locale/es'
-import 'react-big-calendar/lib/css/react-big-calendar.css'
-import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Card, CardMedia, Paper, Avatar, Link, Stack, IconButton } from '@mui/material'
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
-import ImageIcon from '@mui/icons-material/Image'
-import VideocamIcon from '@mui/icons-material/Videocam'
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile'
-import DownloadIcon from '@mui/icons-material/Download'
-import DeleteIcon from '@mui/icons-material/Delete'
-import CircularProgress from '@mui/material/CircularProgress'
-import dropboxService, { deleteBySharedLink } from '../services/dropbox'
-import eventsService from '../services/events'
-import Map from './Map'
-import Comments from './Comments'
-import CommentForm from './CommentForm'
-import CustomToolbar from './CustomToolbar'
+import React, { useState } from 'react';
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import format from 'date-fns/format';
+import parse from 'date-fns/parse';
+import startOfWeek from 'date-fns/startOfWeek';
+import getDay from 'date-fns/getDay';
+import es from 'date-fns/locale/es';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const locales = {
-  'es': es,
-}
+const locales = { 'es': es };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
 
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-})
+const CustomToolbar = (toolbar) => {
+  const goToBack = () => toolbar.onNavigate('PREV');
+  const goToNext = () => toolbar.onNavigate('NEXT');
+  const goToToday = () => toolbar.onNavigate('TODAY');
 
-const messages = {
-  allDay: 'Todo el día',
-  previous: 'Anterior',
-  next: 'Siguiente',
-  today: 'Hoy',
-  month: 'Mes',
-  week: 'Semana',
-  day: 'Día',
-  agenda: 'Agenda',
-  date: 'Fecha',
-  time: 'Hora',
-  event: 'Evento',
-  noEventsInRange: 'No hay eventos en este rango',
-  showMore: total => `+ Ver más (${total})`
-}
+  const label = () => {
+    const date = new Date(toolbar.date);
+    return <span className="text-lg font-bold text-slate-800 capitalize">
+      {format(date, 'MMMM yyyy', { locale: es })}
+    </span>;
+  };
 
-const EventComponent = ({ event }) => {
   return (
-    <Box sx={{ fontSize: '0.85rem' }}>
-      <strong>{format(event.start, 'HH:mm')}</strong> {event.title}
-    </Box>
-  )
-}
+    <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-b border-slate-100 gap-3 bg-white">
+      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
+        {label()}
+        <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-200 shadow-sm">
+          <button type="button" onClick={goToBack} className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
+            <ChevronLeft size={20} />
+          </button>
+          <button type="button" onClick={goToToday} className="px-3 py-1 text-xs font-semibold text-slate-600 hover:text-blue-600 border-x border-transparent hover:border-slate-100">
+            HOY
+          </button>
+          <button type="button" onClick={goToNext} className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
+            <ChevronRight size={20} />
+          </button>
+        </div>
+      </div>
+      
+      <div className="flex bg-slate-50 rounded-lg p-1 border border-slate-200 w-full sm:w-auto overflow-x-auto shadow-sm">
+        {['month', 'week', 'day'].map(view => (
+          <button
+            key={view}
+            type="button"
+            onClick={() => toolbar.onView(view)}
+            className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+              toolbar.view === view 
+                ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5' 
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100/50'
+            }`}
+          >
+            {view === 'month' ? 'Mes' : view === 'week' ? 'Semana' : 'Día'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
-const CalendarView = ({ events, onRemoveEvent, comments, onAddComment, onRemoveComment, onFetchComments, onEditEvent, openEventId, onOpenHandled, calendars, onEventUpdated }) => {
-  const [selectedEvent, setSelectedEvent] = useState(null)
-  const [newCommentText, setNewCommentText] = useState('')
-  const [newCommentUser, setNewCommentUser] = useState('')
-  const [isCommentFormOpen, setIsCommentFormOpen] = useState(false)
+const CalendarView = ({ events, onSelectEvent }) => {
+  const [view, setView] = useState('month');
+  const [date, setDate] = useState(() => new Date());
 
-  const handleSelectEvent = (event) => {
-    setSelectedEvent(event)
-    onFetchComments(event.id)
-  }
-
-  // If parent requests to open a specific event (e.g. after update), open its dialog
-  React.useEffect(() => {
-    if (!openEventId) return
-    const ev = events.find(e => e.id === openEventId)
-    if (!ev) return
-    const calEvent = {
-      id: ev.id,
-      title: ev.title,
-      start: new Date(ev.startTime),
-      end: new Date(ev.endTime),
-      resource: ev
-    }
-    setSelectedEvent(calEvent)
-    onFetchComments(ev.id)
-    if (onOpenHandled) onOpenHandled()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openEventId])
-
-  const handleCloseDialog = () => {
-    setSelectedEvent(null)
-    setNewCommentText('')
-    setNewCommentUser('')
-    setIsCommentFormOpen(false)
-  }
-
-  const handleDelete = () => {
-    onRemoveEvent(selectedEvent.id, selectedEvent.title)()
-    handleCloseDialog()
-  }
-
-  const handleAddCommentSubmit = (e) => {
-    e.preventDefault()
-    onAddComment({
-      text: newCommentText,
-      user: newCommentUser,
-      eventId: selectedEvent.id
-    })
-    setNewCommentText('')
-    setNewCommentUser('')
-    setIsCommentFormOpen(false)
-  }
-
-  // Map events to react-big-calendar format
+  // Transformamos las fechas de string a Date para que BigCalendar no falle
   const calendarEvents = events.map(event => ({
-    id: event.id,
-    title: event.title,
+    ...event,
     start: new Date(event.startTime),
     end: new Date(event.endTime),
-    allDay: false,
-    resource: event
-  }))
+  }));
 
   return (
-    <Box sx={{ height: '85vh', p: 0 }}>
-      <Calendar
-        localizer={localizer}
-        events={calendarEvents}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height: '100%' }}
-        onSelectEvent={handleSelectEvent}
-        views={['month', 'week', 'day', 'agenda']}
-        defaultView='month'
-        culture='es'
-        messages={messages}
-        popup={true}
-        components={{
-          event: EventComponent,
-          toolbar: CustomToolbar
-        }}
-        eventPropGetter={(event) => {
-          // Use a single color as requested ("pon solo un color")
-          const color = '#1976d2'; 
-          return {
-            style: {
-              backgroundColor: color,
-              borderRadius: '4px',
-              opacity: 0.8,
-              color: 'white',
-              border: '0px',
-              display: 'block'
-            }
-          };
-        }}
-      />
+    <div className="flex flex-col h-full min-h-0 bg-white">
+      <div className="flex-1 min-h-0 p-1 sm:p-4"> 
+        <Calendar
+          localizer={localizer}
+          events={calendarEvents}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: '100%', minHeight: 720 }}
+          onSelectEvent={onSelectEvent}
+          view={view}
+          onView={setView}
+          date={date}
+          onNavigate={setDate}
+          views={['month', 'week', 'day']}
+          culture='es'
+          components={{ toolbar: CustomToolbar }}
+          messages={{ 
+            showMore: total => `+${total} más`, 
+            noEventsInRange: 'No hay eventos', 
+            next: 'Siguiente', 
+            previous: 'Anterior', 
+            today: 'Hoy', 
+            month: 'Mes', 
+            week: 'Semana', 
+            day: 'Día'
+          }}
+          eventPropGetter={(event) => {
+            return {
+              className: 'bg-blue-50 border-l-4 border-blue-500 text-blue-700 text-xs font-medium rounded-r-md shadow-sm hover:bg-blue-100 transition-colors',
+              style: { backgroundColor: '#eff6ff', color: '#1d4ed8', border: 'none', borderLeft: '4px solid #3b82f6' }
+            };
+          }}
+        />
+      </div>
+    </div>
+  );
+};
 
-      <Dialog open={!!selectedEvent} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        {selectedEvent && (
-          <>
-            <DialogTitle>{selectedEvent.title}</DialogTitle>
-            <DialogContent>
-              <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-                {format(selectedEvent.start, 'PPpp', { locale: es })} - {format(selectedEvent.end, 'PPpp', { locale: es })}
-              </Typography>
-              <Typography variant="body1" paragraph>
-                {selectedEvent.resource.description}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Ubicación: {selectedEvent.resource.location}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Calendario: {calendars?.find(c => c.id === selectedEvent.resource.calendar)?.title || 'Desconocido'}
-              </Typography>
-
-              {selectedEvent.resource.images && selectedEvent.resource.images.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', mb: 2 }}>
-                  {selectedEvent.resource.images.map((img, index) => (
-                    <Card key={index} sx={{ minWidth: 200 }}>
-                      <CardMedia
-                        component="img"
-                        height="140"
-                        image={img}
-                        alt={`Event image ${index + 1}`}
-                      />
-                    </Card>
-                  ))}
-                </Box>
-              )}
-
-              {selectedEvent.resource.attachments && selectedEvent.resource.attachments.length > 0 && (
-                <Box sx={{ mt: 2, mb: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom>Archivos adjuntos</Typography>
-                  <Stack direction="column" spacing={1}>
-                    {selectedEvent.resource.attachments.map((att, i) => {
-                      // Try to extract filename and extension
-                      let filename = att.split('/').pop().split('?')[0]
-                      const extMatch = filename.match(/\.([a-zA-Z0-9]+)$/)
-                      const ext = extMatch ? extMatch[1].toLowerCase() : ''
-                      let Icon = InsertDriveFileIcon
-                      if (ext === 'pdf') Icon = PictureAsPdfIcon
-                      else if (['png','jpg','jpeg','gif','webp'].includes(ext)) Icon = ImageIcon
-                      else if (['mp4','mov','webm','mkv','avi'].includes(ext)) Icon = VideocamIcon
-
-                      return (
-                        <Paper key={i} elevation={1} sx={{ display: 'flex', alignItems: 'center', p: 1 }}>
-                          <Avatar sx={{ bgcolor: '#1976d2', width: 40, height: 40, mr: 1 }}>
-                            <Icon htmlColor="#fff" />
-                          </Avatar>
-                          <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                            <Link href={att} target="_blank" rel="noreferrer" underline="hover" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {filename}
-                            </Link>
-                            <Typography variant="caption" color="text.secondary">{ext ? ext.toUpperCase() : 'FILE'}</Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                            <IconButton aria-label="download" component="a" href={att} target="_blank" rel="noreferrer">
-                              <DownloadIcon />
-                            </IconButton>
-                            <IconButton aria-label="delete" color="error" onClick={async () => {
-                              const confirm = window.confirm(`Eliminar archivo \"${filename}\" de Dropbox y del evento?`)
-                              if (!confirm) return
-                              try {
-                                // show a simple inline spinner while deleting
-                                const spinner = document.createElement('span')
-                                spinner.className = 'spinner'
-                                // Call Dropbox API delete helper
-                                await deleteBySharedLink(att)
-                                // Remove attachment from event and persist
-                                const updated = { ...selectedEvent.resource }
-                                updated.attachments = updated.attachments.filter(x => x !== att)
-                                const returned = await eventsService.update(updated.id || selectedEvent.id, updated)
-                                // Update UI (dialog)
-                                setSelectedEvent({ ...selectedEvent, resource: returned })
-                                // Notify parent to update top-level events list if provided
-                                if (typeof onEventUpdated === 'function') onEventUpdated(returned)
-                                alert('Archivo eliminado correctamente')
-                              } catch (err) {
-                                console.error(err)
-                                alert('Error al eliminar archivo: ' + (err.message || err))
-                              }
-                            }}>
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
-                        </Paper>
-                      )
-                    })}
-                  </Stack>
-                </Box>
-              )}
-
-              {/* Show map when either explicit coordinates are available or a location string is provided. */}
-              {(
-                (selectedEvent.resource.coordinates && selectedEvent.resource.coordinates.coordinates && selectedEvent.resource.coordinates.coordinates.length === 2)
-                || (selectedEvent.resource.location && String(selectedEvent.resource.location).trim() !== '')
-              ) && (
-                <Box sx={{ mt: 2, mb: 2 }}>
-                  <Map location={selectedEvent.resource.location} coordinates={selectedEvent.resource.coordinates} />
-                </Box>
-              )}
-
-              <Box sx={{ mt: 3 }}>
-                <Comments
-                  comments={comments}
-                  onRemoveComment={onRemoveComment}
-                />
-                <Button variant="outlined" onClick={() => setIsCommentFormOpen(true)} sx={{ mt: 1 }}>
-                  Añadir Comentario
-                </Button>
-              </Box>
-
-              {isCommentFormOpen && (
-                 <Box sx={{ mt: 2, p: 2, border: '1px solid #eee', borderRadius: 1 }}>
-                    <CommentForm
-                      onSubmit={handleAddCommentSubmit}
-                      text={newCommentText}
-                      onTextChange={({ target }) => setNewCommentText(target.value)}
-                      user={newCommentUser}
-                      onUserChange={({ target }) => setNewCommentUser(target.value)}
-                    />
-                    <Button onClick={() => setIsCommentFormOpen(false)} sx={{ mt: 1 }}>Cancelar</Button>
-                 </Box>
-              )}
-
-            </DialogContent>
-            <DialogActions>
-              <Button color="primary" onClick={() => onEditEvent && onEditEvent(selectedEvent.resource)}>
-                Editar Evento
-              </Button>
-              <Button color="error" onClick={handleDelete}>
-                Eliminar Evento
-              </Button>
-              <Button onClick={handleCloseDialog}>Cerrar</Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
-    </Box>
-  )
-}
-
-export default CalendarView
+export default CalendarView;

@@ -1,99 +1,70 @@
-/* Google Calendar-like styles for React Big Calendar */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* Estilos modernos para React Big Calendar */
 .rbc-calendar {
-  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
-  color: #3c4043;
+  @apply font-sans text-slate-600;
 }
 
 .rbc-header {
-  padding: 8px 0;
-  font-weight: 500;
-  color: #70757a;
-  text-transform: uppercase;
-  font-size: 11px;
-  border-bottom: none;
+  @apply py-3 font-semibold text-slate-500 uppercase text-xs tracking-wider border-b border-slate-200 bg-slate-50;
 }
 
 .rbc-month-view {
-  border: none;
+  @apply border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden;
 }
 
 .rbc-month-row {
-  border-top: 1px solid #dadce0;
-  min-height: 100px; /* Ensure rows have height */
+  @apply border-t border-slate-100;
+  min-height: 120px;
 }
 
 .rbc-day-bg {
-  border-left: 1px solid #dadce0;
-}
-
-.rbc-day-bg:first-child {
-  border-left: none;
+  @apply border-l border-slate-100;
 }
 
 .rbc-off-range-bg {
-  background-color: #f8f9fa;
+  @apply bg-slate-50/50;
 }
 
 .rbc-today {
-  background-color: transparent;
+  @apply bg-blue-50/30;
 }
 
 .rbc-date-cell {
-  padding: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
+  @apply p-2 text-xs font-medium text-slate-500;
 }
 
 .rbc-now .rbc-button-link {
-  background-color: #1a73e8;
-  color: white;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  display: inline-block;
-  line-height: 24px;
+  @apply bg-primary text-white rounded-full w-7 h-7 flex items-center justify-center shadow-sm shadow-blue-200;
 }
 
 .rbc-event {
-  background-color: #1976d2;
-  border: none;
-  border-radius: 4px;
-  padding: 2px 5px;
-  font-size: 12px;
-  margin: 1px 0;
+  @apply bg-primary rounded px-2 py-0.5 text-xs shadow-sm opacity-90 border-0;
 }
 
-.rbc-toolbar {
-  margin-bottom: 20px;
-  padding: 0 10px;
+.rbc-event.rbc-selected {
+  @apply bg-blue-700 opacity-100 ring-2 ring-blue-200;
 }
 
-.rbc-toolbar button {
-  color: #3c4043;
-  border: 1px solid #dadce0;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 14px;
-  font-weight: 500;
-  margin-right: 8px;
+/* Agenda view: keep text readable (avoid blue pills) */
+.rbc-agenda-view .rbc-event {
+  @apply bg-transparent text-slate-700 shadow-none opacity-100;
 }
 
-.rbc-toolbar button:hover {
-  background-color: #f1f3f4;
-  border-color: #dadce0;
+.rbc-agenda-view .rbc-event-content {
+  @apply text-slate-800;
 }
 
-.rbc-toolbar button.rbc-active {
-  background-color: #e8f0fe;
-  color: #1967d2;
-  border-color: #e8f0fe;
-  box-shadow: none;
+/* Scrollbar fina */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
-
-.rbc-toolbar-label {
-  font-size: 22px;
-  font-weight: 400;
-  color: #3c4043;
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-slate-400;
 }

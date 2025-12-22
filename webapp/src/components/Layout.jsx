@@ -1,10 +1,5 @@
 import React from 'react';
-import { Box, AppBar, Toolbar, Typography, Drawer, IconButton, Badge, Container, CssBaseline } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-
-const drawerWidth = 280;
+import { Menu, Bell, Calendar } from 'lucide-react';
 
 const Layout = ({ 
   children, 
@@ -14,101 +9,85 @@ const Layout = ({
   onMenuClick,
   mobileOpen,
   onMobileClose,
-  desktopOpen = true,
   authControl
 }) => {
   
-  const handleLogoClick = () => {
-    window.location.href = '/';
-  };
-
   return (
-    <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, backgroundColor: '#fff', color: '#5f6368', boxShadow: 'inset 0 -1px 0 0 #dadce0' }}>
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={onMenuClick}
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Box 
-            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} 
-            onClick={handleLogoClick}
-          >
-            <CalendarTodayIcon sx={{ mr: 1, color: '#1976d2' }} />
-            <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, color: '#5f6368' }}>
-              Kalendas
-            </Typography>
-          </Box>
-          <Box sx={{ flexGrow: 1 }} />
-          {authControl}
-          <IconButton color="inherit" onClick={onNotificationClick}>
-            <Badge badgeContent={notificationCount} color="error">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       
-      {/* Mobile Drawer (Temporary) */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={onMobileClose}
-        ModalProps={{
-          keepMounted: true,
-        }}
-        sx={{
-          display: { xs: 'block', sm: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-        }}
-      >
-        <Toolbar /> {/* Spacer for AppBar */}
-        {sidebarContent}
-      </Drawer>
+      {/* Sidebar Desktop */}
+      <aside className="hidden md:flex w-72 flex-col bg-white border-r border-slate-200 shadow-sm z-20">
+        <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white/50 backdrop-blur-sm">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3 shadow-md shadow-blue-200">
+            <Calendar size={18} className="text-white" />
+          </div>
+          <span className="text-lg font-bold text-slate-800 tracking-tight">Kalendas</span>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          {sidebarContent}
+        </div>
+      </aside>
 
-      {/* Desktop Drawer (Persistent) */}
-      <Drawer
-        variant="persistent"
-        open={desktopOpen}
-        sx={{
-          display: { xs: 'none', sm: 'block' },
-          width: desktopOpen ? drawerWidth : 0,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': { 
-            width: drawerWidth, 
-            boxSizing: 'border-box',
-            borderRight: 'none',
-            paddingTop: '0px' // Handled by Toolbar spacer
-          },
-          transition: (theme) => theme.transitions.create('width', {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
-        }}
-      >
-        <Toolbar /> {/* Spacer for AppBar */}
-        {sidebarContent}
-      </Drawer>
+      {/* Mobile Sidebar Overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onMobileClose}></div>
+          <aside className="absolute top-0 left-0 w-3/4 max-w-xs h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+             <div className="h-16 flex items-center px-6 border-b border-slate-100">
+               <span className="text-lg font-bold text-slate-800">Menú</span>
+             </div>
+             <div className="flex-1 overflow-y-auto p-4">
+                {sidebarContent}
+             </div>
+          </aside>
+        </div>
+      )}
 
-      <Box 
-        component="main" 
-        sx={{ 
-          flexGrow: 1, 
-          p: 3, 
-          width: '100%',
-          overflowX: 'hidden'
-        }}
-      >
-        <Toolbar /> {/* Spacer for AppBar */}
-        {children}
-      </Box>
-    </Box>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shadow-sm z-10">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onMenuClick}
+              className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {onNotificationClick && (
+              <button 
+                  onClick={onNotificationClick} 
+                  className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <Bell size={20} />
+                {notificationCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                  </span>
+                )}
+              </button>
+            )}
+            
+            <div className="h-6 w-px bg-slate-200 mx-1"></div>
+            
+            {authControl}
+          </div>
+        </header>
+
+        {/* Content Scrollable Area */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
+          <div className="max-w-7xl mx-auto h-full flex flex-col">
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 };
 

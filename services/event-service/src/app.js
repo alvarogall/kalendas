@@ -24,6 +24,7 @@ app.use(express.static('dist'))
 // Increase JSON body size to allow base64 image uploads from the frontend (default is ~100kb)
 app.use(express.json({ limit: '10mb' }))
 app.use(middleware.requestLogger)
+app.use(middleware.tokenExtractor)
 
 app.use('/api/events', eventsRouter)
 
