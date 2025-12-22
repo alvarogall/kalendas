@@ -37,6 +37,16 @@ const notificationSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  lastAttemptAt: {
+    type: Date
+  },
+  nextAttemptAt: {
+    type: Date,
+    default: Date.now
+  },
+  processedAt: {
+    type: Date
+  },
   lastError: {
     type: String
   }

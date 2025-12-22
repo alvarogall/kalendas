@@ -13,11 +13,22 @@ const getTransporter = () => {
         host: config.SMTP_HOST,
         port: config.SMTP_PORT,
         secure: config.SMTP_SECURE,
+        connectionTimeout: config.SMTP_CONNECTION_TIMEOUT_MS,
+        greetingTimeout: config.SMTP_GREETING_TIMEOUT_MS,
+        socketTimeout: config.SMTP_SOCKET_TIMEOUT_MS,
         auth: {
             user: config.SMTP_USER,
             pass: config.SMTP_PASS
+        },
+        tls: {
+            // Helps with some TLS/SNI edge-cases on hosted environments
+            servername: config.SMTP_HOST
         }
     })
+
+    logger.info(
+        `SMTP transporter ready host=${config.SMTP_HOST} port=${config.SMTP_PORT} secure=${config.SMTP_SECURE}`
+    )
 
     return transporter
 }
